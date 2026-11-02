@@ -1,8 +1,8 @@
 # Mazmorra
 
-Armé este juego por turnos en Java para practicar el paso de datos entre capas. La idea es simple: un aventurero entra a una mazmorra de tres pisos, pelea contra cuatro criaturas y administra vida y oro.
+juego por turnos en java
 
-Lo dividí en capas: `model` → `dao` (interfaces + implementación MySQL) → `service` → `Main`.
+dividido en capas: `model` → `dao` (interfaces + implementación MySQL) → `service` → `Main`.
 
 ## Requisitos
 
