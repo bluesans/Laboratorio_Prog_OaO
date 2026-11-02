@@ -44,7 +44,7 @@ public final class DemoGuionada {
         Criatura esqueleto = escenario.get(0);
         Criatura fantasma = escenario.get(1);
         Criatura orco = escenario.get(2);
-        Criatura dragon = escenario.get(3);
+        DragonJefe dragon = (DragonJefe) escenario.get(3);
 
         System.out.println("  Partida nueva sembrada en el piso " + aventurero.getPisoActual() + ".");
         imprimirEstado(aventurero);
@@ -124,10 +124,16 @@ public final class DemoGuionada {
         System.out.println("==== 5) COMBATE EN EL PISO 2 ====");
         servicio.avanzarPiso(aventurero);
         System.out.println("  Avanzaste al piso " + aventurero.getPisoActual() + ".");
+        int vidaOrcoAntesMagia = orco.getVida();
         atacarConTurno(servicio, aventurero, orco, TipoAtaque.MAGICO, "mágico");
+        int danioMagico = vidaOrcoAntesMagia - orco.getVida();
+        int danioNominal = aventurero.getAtaqueBase();
+        boolean orcoContraataco = orco.estaViva();
         atacarConTurno(servicio, aventurero, orco, TipoAtaque.FISICO, "físico");
         atacarConTurno(servicio, aventurero, orco, TipoAtaque.FISICO, "físico");
-        System.out.println("  El orco absorbió parte de la magia y contraatacó.");
+        System.out.println("  El orco recibió " + danioMagico + " de daño mágico de "
+                + danioNominal + " posibles (absorbió " + (danioNominal - danioMagico) + ")"
+                + (orcoContraataco ? " y contraatacó." : "."));
         System.out.println();
 
         System.out.println("==== 6) POCIÓN Y AVANCE ====");
@@ -153,7 +159,11 @@ public final class DemoGuionada {
         atacarConTurno(servicio, aventurero, dragon, TipoAtaque.FISICO, "físico");
         atacarConTurno(servicio, aventurero, dragon, TipoAtaque.FISICO, "físico");
         atacarConTurno(servicio, aventurero, dragon, TipoAtaque.FISICO, "físico");
-        System.out.println("  Victoria: el Jefe Dragón cayó.");
+        if (dragon.estaDerrotado()) {
+            System.out.println("  Victoria: el Jefe Dragón cayó.");
+        } else {
+            System.out.println("  La demo terminó con el Jefe Dragón en pie.");
+        }
         System.out.println();
 
         System.out.println("==== 8) ERRORES DEL AVENTURERO ====");

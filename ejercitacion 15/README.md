@@ -61,6 +61,10 @@ El proyecto arranca en el menú interactivo. Para correr la partida guionada
 que muestra las reglas y las excepciones del juego, poner la variable
 `modoDemo` de `Main` en `true`.
 
+Ojo: la demo **limpia la base de datos**. Al arrancar llama a
+`iniciarNuevaPartida`, que borra todos los aventureros y las criaturas, y deja
+su propio escenario de prueba. Cualquier partida que tengas guardada se pierde.
+
 El menú principal tiene tres opciones: nueva partida, reglas del juego y salir.
 La segunda muestra en pantalla el objetivo, el mapa de los tres pisos, las
 acciones disponibles y cómo se comporta cada criatura. Al crear la
