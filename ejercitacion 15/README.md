@@ -35,6 +35,9 @@ Maven descarga solo. JUnit 5 está disponible como dependencia de pruebas.
    mysql -u mazmorra_app -p mazmorra < sql/schema.sql
    ```
 
+   El script **elimina y vuelve a crear** las tablas `criatura` y `aventurero`,
+   así que borra cualquier dato que ya existiera.
+
 3. **Configurar la conexión**: copiar `db.properties.example` a `db.properties`
    y ajustar usuario y contraseña. Ese archivo está en `.gitignore`, así que
    nunca se sube al repositorio. También se puede sobrescribir con las variables

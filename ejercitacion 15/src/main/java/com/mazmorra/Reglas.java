@@ -21,8 +21,6 @@ public final class Reglas {
     public static final int DANIO_FANTASMA = 15;
     public static final int DANIO_ORCO = 12;
     public static final int DANIO_DRAGON = 10;
-    public static final int BONO_ALIENTO = 5;
-    public static final int BONO_FASE = 5;
 
     public static final int RESISTENCIA_ESQUELETO = 40;
     public static final int RESISTENCIA_MAGICA_ORCO = 50;

@@ -31,249 +31,249 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class JuegoServiceTest {
 
-    private InMemoryCriaturaDAO criaturaDAO;
-    private InMemoryAventureroDAO aventureroDAO;
-    private JuegoServiceImpl servicio;
+    private InMemoryCriaturaDAO creatureDAO;
+    private InMemoryAventureroDAO adventurerDAO;
+    private JuegoServiceImpl service;
 
     @BeforeEach
     void setUp() throws Exception {
-        criaturaDAO = new InMemoryCriaturaDAO();
-        aventureroDAO = new InMemoryAventureroDAO();
-        servicio = new JuegoServiceImpl(
-                criaturaDAO, aventureroDAO,
-                new TransaccionDirecta(criaturaDAO, aventureroDAO));
+        creatureDAO = new InMemoryCriaturaDAO();
+        adventurerDAO = new InMemoryAventureroDAO();
+        service = new JuegoServiceImpl(
+                creatureDAO, adventurerDAO,
+                new TransaccionDirecta(creatureDAO, adventurerDAO));
     }
 
     @Test
-    void usarPocionFailsWhenLifeIsFull() throws Exception {
-        Aventurero aventurero = crearAventurero(100, 50);
+    void usePotionFailsWhenLifeIsFull() throws Exception {
+        Aventurero adventurer = createAdventurer(100, 50);
 
         assertThrows(VidaCompletaException.class,
-                () -> servicio.usarPocion(aventurero, Reglas.TAMANO_POCION, null),
+                () -> service.usarPocion(adventurer, Reglas.TAMANO_POCION),
                 "Con la vida al máximo la poción debe rechazarse.");
     }
 
     @Test
-    void usarPocionFailsWhenGoldIsBelowProportionalCost() throws Exception {
-        Aventurero aventurero = crearAventurero(88, 7);
+    void usePotionFailsWhenGoldIsBelowProportionalCost() throws Exception {
+        Aventurero adventurer = createAdventurer(88, 7);
 
         assertThrows(OroInsuficienteException.class,
-                () -> servicio.usarPocion(aventurero, Reglas.TAMANO_POCION, null),
+                () -> service.usarPocion(adventurer, Reglas.TAMANO_POCION),
                 "Con 7 de oro no se puede pagar el costo proporcional de 8.");
     }
 
     @Test
-    void usarPocionHealsExactMissingLifeAndChargesProportionalCost() throws Exception {
-        Aventurero aventurero = crearAventurero(88, 50);
-        Esqueleto enemigo = new Esqueleto(
+    void usePotionHealsExactMissingLifeAndChargesProportionalCost() throws Exception {
+        Aventurero adventurer = createAdventurer(88, 50);
+        Esqueleto skeleton = new Esqueleto(
                 0, "Esqueleto enemigo", 50, 50, 1, Reglas.DANIO_ESQUELETO, 1, false, 40);
-        criaturaDAO.insertar(enemigo);
+        creatureDAO.insertar(skeleton);
 
-        servicio.usarPocion(aventurero, Reglas.TAMANO_POCION, enemigo);
+        service.usarPocion(adventurer, Reglas.TAMANO_POCION);
 
-        assertEquals(42, aventurero.getOro(),
+        assertEquals(42, adventurer.getOro(),
                 "Curar 12 debe costar 8 de oro: de 50 debe quedar 42.");
-        assertEquals(88, aventurero.getVida(),
+        assertEquals(88, adventurer.getVida(),
                 "La curación lleva la vida a 100 y el enemigo del piso devuelve 12 de daño.");
-        assertEquals(42, aventureroDAO.buscarPorId(aventurero.getId()).orElseThrow().getOro(),
+        assertEquals(42, adventurerDAO.buscarPorId(adventurer.getId()).orElseThrow().getOro(),
                 "El oro actualizado debe quedar persistido en el DAO.");
     }
 
     @Test
-    void huirDeCombateFailsAgainstTheDragon() throws Exception {
-        Aventurero aventurero = crearAventurero();
+    void fleeFromCombatFailsAgainstTheDragon() throws Exception {
+        Aventurero adventurer = createAdventurer();
         DragonJefe dragon = new DragonJefe(
                 0, "Dragón", 100, 100, 3, Reglas.DANIO_DRAGON, 3, false, 1, 3, false);
-        criaturaDAO.insertar(dragon);
+        creatureDAO.insertar(dragon);
 
         assertThrows(HuidaProhibidaException.class,
-                () -> servicio.huirDeCombate(aventurero, dragon),
+                () -> service.huirDeCombate(adventurer, dragon),
                 "No se debe poder huir del jefe final.");
     }
 
     @Test
-    void huirDeCombateChargesGoldTakesDamageAndEvictsCreature() throws Exception {
-        Aventurero aventurero = crearAventurero(100, 50);
-        Esqueleto esqueleto = new Esqueleto(
+    void fleeFromCombatChargesGoldTakesDamageAndEvictsCreature() throws Exception {
+        Aventurero adventurer = createAdventurer(100, 50);
+        Esqueleto skeleton = new Esqueleto(
                 0, "Esqueleto", 50, 50, 1, Reglas.DANIO_ESQUELETO, 1, false, 40);
-        criaturaDAO.insertar(esqueleto);
+        creatureDAO.insertar(skeleton);
 
-        servicio.huirDeCombate(aventurero, esqueleto);
+        service.huirDeCombate(adventurer, skeleton);
 
-        assertEquals(40, aventurero.getOro(),
+        assertEquals(40, adventurer.getOro(),
                 "Huir debe descontar 10 de oro.");
-        assertEquals(88, aventurero.getVida(),
+        assertEquals(88, adventurer.getVida(),
                 "El aventurero debe perder el daño de ataque del esqueleto al huir.");
-        assertTrue(esqueleto.isEvadida(),
+        assertTrue(skeleton.isEvadida(),
                 "La criatura de la que se huye debe quedar marcada como evadida.");
 
-        Criatura persistida = criaturaDAO.buscarPorId(esqueleto.getId()).orElseThrow();
-        assertTrue(persistida.isEvadida(),
+        Criatura persisted = creatureDAO.buscarPorId(skeleton.getId()).orElseThrow();
+        assertTrue(persisted.isEvadida(),
                 "La criatura evadida debe quedar persistida con ese estado.");
     }
 
     @Test
-    void avanzarPisoFailsWhenLivingCreaturesRemain() throws Exception {
-        Aventurero aventurero = crearAventurero();
-        Esqueleto esqueleto = new Esqueleto(
+    void advanceFloorFailsWhenLivingCreaturesRemain() throws Exception {
+        Aventurero adventurer = createAdventurer();
+        Esqueleto skeleton = new Esqueleto(
                 0, "Esqueleto", 50, 50, 1, Reglas.DANIO_ESQUELETO, 1, false, 40);
-        criaturaDAO.insertar(esqueleto);
+        creatureDAO.insertar(skeleton);
 
         assertThrows(CriaturasPendientesException.class,
-                () -> servicio.avanzarPiso(aventurero),
+                () -> service.avanzarPiso(adventurer),
                 "No se debe avanzar de piso mientras queden criaturas vivas.");
-        assertEquals(1, aventurero.getPisoActual(),
+        assertEquals(1, adventurer.getPisoActual(),
                 "El piso del aventurero no debe cambiar tras el rechazo.");
     }
 
     @Test
-    void resolverTurnoFailsAgainstAlreadyDefeatedCreature() throws Exception {
-        Aventurero aventurero = crearAventurero();
-        Esqueleto esqueleto = new Esqueleto(
+    void resolveTurnFailsAgainstAlreadyDefeatedCreature() throws Exception {
+        Aventurero adventurer = createAdventurer();
+        Esqueleto skeleton = new Esqueleto(
                 0, "Esqueleto derrotado", 0, 50, 1, Reglas.DANIO_ESQUELETO, 1, false, 40);
-        criaturaDAO.insertar(esqueleto);
+        creatureDAO.insertar(skeleton);
 
         assertThrows(CriaturaYaDerrotadaException.class,
-                () -> servicio.resolverTurno(aventurero, esqueleto, TipoAtaque.FISICO),
+                () -> service.resolverTurno(adventurer, skeleton, TipoAtaque.FISICO),
                 "No se puede resolver un turno contra una criatura ya derrotada.");
     }
 
     @Test
-    void resolverTurnoKillsSkeletonWithTwoHitsAndPaysRewardOnce() throws Exception {
-        Aventurero aventurero = crearAventurero(100, 50);
+    void resolveTurnKillsSkeletonWithTwoHitsAndPaysRewardOnce() throws Exception {
+        Aventurero adventurer = createAdventurer(100, 50);
         // Dos golpes físicos de 20 dejan 12 de daño efectivo cada uno: se usa una vida de 24
         // para que el esqueleto muera exactamente en el segundo turno.
-        Esqueleto esqueleto = new Esqueleto(
+        Esqueleto skeleton = new Esqueleto(
                 0, "Esqueleto", 24, 24, 2, Reglas.DANIO_ESQUELETO, 1, false, 40);
-        criaturaDAO.insertar(esqueleto);
+        creatureDAO.insertar(skeleton);
 
-        servicio.resolverTurno(aventurero, esqueleto, TipoAtaque.FISICO);
+        service.resolverTurno(adventurer, skeleton, TipoAtaque.FISICO);
 
-        assertEquals(12, esqueleto.getVida(),
+        assertEquals(12, skeleton.getVida(),
                 "El primer golpe de 20 debe dejar 12 de daño efectivo.");
-        assertEquals(88, aventurero.getVida(),
+        assertEquals(88, adventurer.getVida(),
                 "El esqueleto vivo debe devolver su ataque en el primer turno.");
-        assertEquals(50, aventurero.getOro(),
+        assertEquals(50, adventurer.getOro(),
                 "Mientras la criatura siga viva no se debe pagar recompensa.");
 
-        servicio.resolverTurno(aventurero, esqueleto, TipoAtaque.FISICO);
+        service.resolverTurno(adventurer, skeleton, TipoAtaque.FISICO);
 
-        assertEquals(0, esqueleto.getVida(),
+        assertEquals(0, skeleton.getVida(),
                 "El segundo golpe de 20 debe dejar 12 de daño efectivo y matar al esqueleto.");
-        assertTrue(esqueleto.isDerrotada(),
+        assertTrue(skeleton.isDerrotada(),
                 "El esqueleto debe quedar marcado como derrotado.");
-        assertEquals(50 + 2 * Reglas.ORO_POR_NIVEL_AMENAZA, aventurero.getOro(),
+        assertEquals(50 + 2 * Reglas.ORO_POR_NIVEL_AMENAZA, adventurer.getOro(),
                 "La recompensa debe ser nivel de amenaza por oro por nivel.");
-        assertTrue(esqueleto.isRecompensaPagada(),
+        assertTrue(skeleton.isRecompensaPagada(),
                 "La recompensa debe quedar marcada como pagada.");
 
         assertThrows(CriaturaYaDerrotadaException.class,
-                () -> servicio.resolverTurno(aventurero, esqueleto, TipoAtaque.FISICO),
+                () -> service.resolverTurno(adventurer, skeleton, TipoAtaque.FISICO),
                 "Un turno extra contra la criatura derrotada debe rechazarse.");
-        assertEquals(50 + 2 * Reglas.ORO_POR_NIVEL_AMENAZA, aventurero.getOro(),
+        assertEquals(50 + 2 * Reglas.ORO_POR_NIVEL_AMENAZA, adventurer.getOro(),
                 "La recompensa no debe pagarse dos veces.");
     }
 
     @Test
-    void resolverAtaqueRejectsZeroDamage() throws Exception {
-        Esqueleto esqueleto = new Esqueleto(
+    void resolveAttackRejectsZeroDamage() throws Exception {
+        Esqueleto skeleton = new Esqueleto(
                 0, "Esqueleto", 50, 50, 1, Reglas.DANIO_ESQUELETO, 1, false, 40);
-        criaturaDAO.insertar(esqueleto);
+        creatureDAO.insertar(skeleton);
 
         assertThrows(DanioInvalidoException.class,
-                () -> servicio.resolverAtaque(esqueleto, 0, TipoAtaque.FISICO),
+                () -> service.resolverAtaque(skeleton, 0, TipoAtaque.FISICO),
                 "Un ataque con daño 0 debe rechazarse.");
     }
 
     @Test
-    void resolverAtaqueRejectsEvictedCreature() throws Exception {
-        Esqueleto esqueleto = new Esqueleto(
+    void resolveAttackRejectsEvictedCreature() throws Exception {
+        Esqueleto skeleton = new Esqueleto(
                 0, "Esqueleto", 50, 50, 1, Reglas.DANIO_ESQUELETO, 1, false, 40);
-        esqueleto.marcarEvadida();
-        criaturaDAO.insertar(esqueleto);
+        skeleton.marcarEvadida();
+        creatureDAO.insertar(skeleton);
 
         assertThrows(CriaturaEvadidaException.class,
-                () -> servicio.resolverAtaque(esqueleto, 20, TipoAtaque.FISICO),
+                () -> service.resolverAtaque(skeleton, 20, TipoAtaque.FISICO),
                 "No se puede atacar a una criatura que quedó atrás al huir.");
     }
 
     @Test
-    void resolverAtaqueReducesLifeThroughDanableInterface() throws Exception {
-        Aventurero aventurero = crearAventurero(100, 50);
-        Esqueleto esqueleto = new Esqueleto(
+    void resolveAttackReducesLifeThroughDanableInterface() throws Exception {
+        Aventurero adventurer = createAdventurer(100, 50);
+        Esqueleto skeleton = new Esqueleto(
                 0, "Esqueleto", 50, 50, 1, Reglas.DANIO_ESQUELETO, 1, false, 0);
-        criaturaDAO.insertar(esqueleto);
+        creatureDAO.insertar(skeleton);
 
-        Danable objetivoCriatura = esqueleto;
-        Danable objetivoAventurero = aventurero;
+        Danable creatureTarget = skeleton;
+        Danable adventurerTarget = adventurer;
 
-        servicio.resolverAtaque(objetivoCriatura, 20, TipoAtaque.FISICO);
-        servicio.resolverAtaque(objetivoAventurero, 20, TipoAtaque.MAGICO);
+        service.resolverAtaque(creatureTarget, 20, TipoAtaque.FISICO);
+        service.resolverAtaque(adventurerTarget, 20, TipoAtaque.MAGICO);
 
-        assertEquals(30, esqueleto.getVida(),
+        assertEquals(30, skeleton.getVida(),
                 "La criatura debe recibir el daño a través de la interfaz Danable.");
-        assertEquals(80, aventurero.getVida(),
+        assertEquals(80, adventurer.getVida(),
                 "El aventurero debe recibir el daño a través de la interfaz Danable.");
     }
 
     @Test
-    void iniciarNuevaPartidaClearsStateAndInsertsAdventurerAndScenario() throws Exception {
+    void startNewGameClearsStateAndInsertsAdventurerAndScenario() throws Exception {
         // Se dejan datos previos para comprobar que la partida nueva los reemplaza.
-        crearAventurero();
-        criaturaDAO.insertar(new Esqueleto(
+        createAdventurer();
+        creatureDAO.insertar(new Esqueleto(
                 0, "Criatura vieja", 10, 10, 1, 1, 1, false, 10));
 
-        Esqueleto esqueleto = new Esqueleto(
+        Esqueleto skeleton = new Esqueleto(
                 0, "Esqueleto", 50, 50, 1, Reglas.DANIO_ESQUELETO, 1, false, 40);
-        Orco orco = new Orco(
+        Orco orc = new Orco(
                 0, "Orco", 60, 60, 2, Reglas.DANIO_ORCO, 2, false, 50);
 
-        int idAventurero = servicio.iniciarNuevaPartida(
-                "Aventurero nuevo", 100, 20, List.of(esqueleto, orco));
+        int adventurerId = service.iniciarNuevaPartida(
+                "Aventurero nuevo", 100, 20, List.of(skeleton, orc));
 
-        List<Aventurero> aventureros = aventureroDAO.listarTodos();
-        List<Criatura> criaturas = criaturaDAO.listarTodas();
+        List<Aventurero> adventurers = adventurerDAO.listarTodos();
+        List<Criatura> creatures = creatureDAO.listarTodas();
 
-        assertEquals(1, aventureros.size(),
+        assertEquals(1, adventurers.size(),
                 "Debe quedar exactamente un aventurero.");
-        assertEquals(2, criaturas.size(),
+        assertEquals(2, creatures.size(),
                 "Debe quedar exactamente el escenario indicado.");
-        assertEquals(idAventurero, aventureros.get(0).getId(),
+        assertEquals(adventurerId, adventurers.get(0).getId(),
                 "El id devuelto debe corresponder al aventurero insertado.");
-        assertEquals(Reglas.VIDA_INICIAL, aventureros.get(0).getVida(),
+        assertEquals(Reglas.VIDA_INICIAL, adventurers.get(0).getVida(),
                 "El aventurero nuevo debe empezar con la vida inicial.");
-        assertEquals(Reglas.ORO_INICIAL, aventureros.get(0).getOro(),
+        assertEquals(Reglas.ORO_INICIAL, adventurers.get(0).getOro(),
                 "El aventurero nuevo debe empezar con el oro inicial.");
-        assertEquals(Reglas.PISO_INICIAL, aventureros.get(0).getPisoActual(),
+        assertEquals(Reglas.PISO_INICIAL, adventurers.get(0).getPisoActual(),
                 "El aventurero nuevo debe empezar en el piso inicial.");
-        assertTrue(esqueleto.getId() > 0, "La criatura del escenario debe recibir un id.");
-        assertTrue(orco.getId() > 0, "La criatura del escenario debe recibir un id.");
+        assertTrue(skeleton.getId() > 0, "La criatura del escenario debe recibir un id.");
+        assertTrue(orc.getId() > 0, "La criatura del escenario debe recibir un id.");
     }
 
     @Test
     void transactionRethrowsWorkExceptionUnchanged() throws Exception {
-        PersistenciaException esperada = new PersistenciaException("Falla simulada");
-        TransaccionDirecta transaccion = new TransaccionDirecta(criaturaDAO, aventureroDAO);
+        PersistenciaException expected = new PersistenciaException("Falla simulada");
+        TransaccionDirecta transaction = new TransaccionDirecta(creatureDAO, adventurerDAO);
 
-        PersistenciaException lanzada = assertThrows(PersistenciaException.class,
-                () -> transaccion.ejecutar((criaturas, aventureros) -> {
-                    throw esperada;
+        PersistenciaException thrown = assertThrows(PersistenciaException.class,
+                () -> transaction.ejecutar((creatures, adventurers) -> {
+                    throw expected;
                 }),
                 "La transacción debe propagar la excepción lanzada dentro del trabajo.");
 
-        assertEquals(esperada, lanzada,
+        assertEquals(expected, thrown,
                 "Debe propagarse la misma instancia de la excepción.");
     }
 
-    private Aventurero crearAventurero() throws Exception {
-        return crearAventurero(Reglas.VIDA_INICIAL, Reglas.ORO_INICIAL);
+    private Aventurero createAdventurer() throws Exception {
+        return createAdventurer(Reglas.VIDA_INICIAL, Reglas.ORO_INICIAL);
     }
 
-    private Aventurero crearAventurero(int vida, int oro) throws Exception {
-        Aventurero aventurero = new Aventurero(
-                0, "Aventurero", 1, vida, Reglas.VIDA_INICIAL,
-                Reglas.ATAQUE_INICIAL, oro, Reglas.PISO_INICIAL);
-        aventureroDAO.insertar(aventurero);
-        return aventurero;
+    private Aventurero createAdventurer(int health, int gold) throws Exception {
+        Aventurero adventurer = new Aventurero(
+                0, "Aventurero", 1, health, Reglas.VIDA_INICIAL,
+                Reglas.ATAQUE_INICIAL, gold, Reglas.PISO_INICIAL);
+        adventurerDAO.insertar(adventurer);
+        return adventurer;
     }
 }

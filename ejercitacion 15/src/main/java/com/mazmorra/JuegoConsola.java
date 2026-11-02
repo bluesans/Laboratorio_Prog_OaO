@@ -134,7 +134,7 @@ public final class JuegoConsola {
 
             boolean pisoDespejado = vivas.isEmpty();
             if (pisoDespejado && aventurero.getPisoActual() >= Reglas.PISO_FINAL) {
-                System.out.println("Victoria: no queda nadie en pie.");
+                System.out.println("Victoria: el Jefe Dragón cayó.");
                 return;
             }
 
@@ -144,8 +144,8 @@ public final class JuegoConsola {
                 System.out.println("  Piso despejado: avanza con la opción 5.");
             }
 
-            System.out.println("1) Atacar físico   2) Atacar con magia   3) Huir (-hasta "
-                    + Reglas.COSTO_HUIDA + " oro y un golpe)");
+            System.out.println("1) Atacar físico   2) Atacar con magia   3) Huir (-"
+                    + Reglas.COSTO_HUIDA + " de oro y un golpe)");
             System.out.println("4) Poción (+" + Reglas.TAMANO_POCION + " vida, hasta "
                     + Reglas.COSTO_POCION + " oro)   5) Avanzar de piso");
             System.out.println("6) Estado   0) Abandonar");
@@ -183,18 +183,11 @@ public final class JuegoConsola {
                                 + (vidaAntes - aventurero.getVida()) + " de vida)");
                     }
                     case 4 -> {
-                        Criatura enemigo = null;
-                        for (Criatura candidata : vivas) {
-                            if (enemigo == null
-                                    || candidata.getDanioAtaque() > enemigo.getDanioAtaque()) {
-                                enemigo = candidata;
-                            }
-                        }
                         int vidaAntes = aventurero.getVida();
                         int oroAntes = aventurero.getOro();
                         int curado = Math.min(Reglas.TAMANO_POCION,
                                 aventurero.getVidaMaxima() - aventurero.getVida());
-                        servicio.usarPocion(aventurero, Reglas.TAMANO_POCION, enemigo);
+                        Criatura enemigo = servicio.usarPocion(aventurero, Reglas.TAMANO_POCION);
                         System.out.println("Poción: vida " + aventurero.getVida()
                                 + "/" + aventurero.getVidaMaxima() + ". (curó "
                                 + curado + " por " + (oroAntes - aventurero.getOro()) + " de oro)");

@@ -223,7 +223,7 @@ public class JuegoServiceImpl implements JuegoService {
     }
 
     @Override
-    public void usarPocion(Aventurero aventurero, int cantidad, Criatura enemigo)
+    public Criatura usarPocion(Aventurero aventurero, int cantidad)
             throws VidaCompletaException, AventureroDerrotadoException,
             OroInsuficienteException, PersistenciaException {
         if (aventurero == null) {
@@ -251,7 +251,7 @@ public class JuegoServiceImpl implements JuegoService {
         }
 
         try {
-            transaccion.ejecutar((criaturas, aventureros) -> {
+            return transaccion.ejecutar((criaturas, aventureros) -> {
                 // Pago, curación y golpe del enemigo se guardan en una sola transacción.
                 aventurero.setOro(aventurero.getOro() - costo);
                 aventurero.curar(curado);
@@ -259,13 +259,14 @@ public class JuegoServiceImpl implements JuegoService {
                     throw new PersistenciaException(
                             "Sin filas actualizadas para aventurero id " + aventurero.getId());
                 }
-                if (enemigo != null && enemigo.estaViva()) {
+                Criatura enemigo = buscarEnemigoDelPiso(aventurero, criaturas);
+                if (enemigo != null) {
                     aplicarTurnoEnemigo(aventurero, enemigo, aventureros);
                 }
-                return null;
+                return enemigo;
             });
         } catch (JuegoException e) {
-            relanzarPocion(e);
+            return relanzarPocion(e);
         }
     }
 
@@ -365,6 +366,18 @@ public class JuegoServiceImpl implements JuegoService {
         criatura.recibirDanio(danio, tipoAtaque == null ? TipoAtaque.FISICO : tipoAtaque);
     }
 
+    private Criatura buscarEnemigoDelPiso(Aventurero aventurero, CriaturaDAO criaturas)
+            throws PersistenciaException {
+        Criatura enemigo = null;
+        for (Criatura criatura : criaturas.listarPorPiso(aventurero.getPisoActual())) {
+            if (criatura.estaViva()
+                    && (enemigo == null || criatura.getDanioAtaque() > enemigo.getDanioAtaque())) {
+                enemigo = criatura;
+            }
+        }
+        return enemigo;
+    }
+
     private void aplicarTurnoEnemigo(Aventurero aventurero, Criatura criatura, AventureroDAO aventureros)
             throws AventureroDerrotadoException, PersistenciaException {
         if (aventurero.estaDerrotado()) {
@@ -427,7 +440,7 @@ public class JuegoServiceImpl implements JuegoService {
         throw new PersistenciaException(e.getMessage(), e);
     }
 
-    private static void relanzarPocion(JuegoException e)
+    private static Criatura relanzarPocion(JuegoException e)
             throws VidaCompletaException, AventureroDerrotadoException,
             OroInsuficienteException, PersistenciaException {
         if (e instanceof VidaCompletaException ex) {

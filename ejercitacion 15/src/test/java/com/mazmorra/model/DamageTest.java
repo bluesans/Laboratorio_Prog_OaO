@@ -10,82 +10,85 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Pruebas de las reglas de daño, curación y estado de las criaturas.
  */
-class DanioTest {
+class DamageTest {
+
+    private static final int BREATH_BONUS = 5;
+    private static final int PHASE_BONUS = 5;
 
     @Test
-    void esqueletoReducesPhysicalDamage() {
-        Esqueleto esqueleto = new Esqueleto(
+    void skeletonReducesPhysicalDamage() {
+        Esqueleto skeleton = new Esqueleto(
                 1, "Esqueleto", 100, 100, 1, Reglas.DANIO_ESQUELETO, 1, false, 40);
 
-        esqueleto.recibirDanio(20, TipoAtaque.FISICO);
+        skeleton.recibirDanio(20, TipoAtaque.FISICO);
 
-        assertEquals(88, esqueleto.getVida(),
+        assertEquals(88, skeleton.getVida(),
                 "El daño físico de 20 debe quedar reducido a 12 por la resistencia del 40 %.");
     }
 
     @Test
-    void esqueletoTakesFullMagicDamage() {
-        Esqueleto esqueleto = new Esqueleto(
+    void skeletonTakesFullMagicDamage() {
+        Esqueleto skeleton = new Esqueleto(
                 1, "Esqueleto", 100, 100, 1, Reglas.DANIO_ESQUELETO, 1, false, 40);
 
-        esqueleto.recibirDanio(20, TipoAtaque.MAGICO);
+        skeleton.recibirDanio(20, TipoAtaque.MAGICO);
 
-        assertEquals(80, esqueleto.getVida(),
+        assertEquals(80, skeleton.getVida(),
                 "La resistencia física no debe reducir el daño mágico.");
     }
 
     @Test
-    void fantasmaReducesPhysicalDamageWhenIncorporeal() {
-        Fantasma fantasma = new Fantasma(
+    void ghostReducesPhysicalDamageWhenIncorporeal() {
+        Fantasma ghost = new Fantasma(
                 1, "Fantasma", 100, 100, 1, Reglas.DANIO_FANTASMA, 1, false, true);
 
-        fantasma.recibirDanio(20, TipoAtaque.FISICO);
+        ghost.recibirDanio(20, TipoAtaque.FISICO);
 
-        assertEquals(90, fantasma.getVida(),
+        assertEquals(90, ghost.getVida(),
                 "Un fantasma incorpóreo debe recibir la mitad del daño físico.");
     }
 
     @Test
-    void fantasmaTakesFullMagicDamage() {
-        Fantasma fantasma = new Fantasma(
+    void ghostTakesFullMagicDamage() {
+        Fantasma ghost = new Fantasma(
                 1, "Fantasma", 100, 100, 1, Reglas.DANIO_FANTASMA, 1, false, true);
 
-        fantasma.recibirDanio(20, TipoAtaque.MAGICO);
+        ghost.recibirDanio(20, TipoAtaque.MAGICO);
 
-        assertEquals(80, fantasma.getVida(),
+        assertEquals(80, ghost.getVida(),
                 "La incorporeidad no debe reducir el daño mágico.");
     }
 
     @Test
-    void fantasmaTruncatesOddPhysicalDamage() {
-        Fantasma fantasma = new Fantasma(
+    void ghostTruncatesOddPhysicalDamage() {
+        Fantasma ghost = new Fantasma(
                 1, "Fantasma", 100, 100, 1, Reglas.DANIO_FANTASMA, 1, false, true);
 
-        fantasma.recibirDanio(1, TipoAtaque.FISICO);
+        ghost.recibirDanio(1, TipoAtaque.FISICO);
 
-        assertEquals(100, fantasma.getVida(),
+        assertEquals(100, ghost.getVida(),
                 "Con daño físico 1 la mitad entera es 0 y la vida no debe cambiar.");
     }
 
     @Test
-    void orcoTakesFullPhysicalDamage() {
-        Orco orco = new Orco(
+    void orcTakesFullPhysicalDamage() {
+        Orco orc = new Orco(
                 1, "Orco", 100, 100, 1, Reglas.DANIO_ORCO, 1, false, 50);
 
-        orco.recibirDanio(20, TipoAtaque.FISICO);
+        orc.recibirDanio(20, TipoAtaque.FISICO);
 
-        assertEquals(80, orco.getVida(),
+        assertEquals(80, orc.getVida(),
                 "La resistencia mágica no debe reducir el daño físico.");
     }
 
     @Test
-    void orcoReducesMagicDamage() {
-        Orco orco = new Orco(
+    void orcReducesMagicDamage() {
+        Orco orc = new Orco(
                 1, "Orco", 100, 100, 1, Reglas.DANIO_ORCO, 1, false, 50);
 
-        orco.recibirDanio(20, TipoAtaque.MAGICO);
+        orc.recibirDanio(20, TipoAtaque.MAGICO);
 
-        assertEquals(90, orco.getVida(),
+        assertEquals(90, orc.getVida(),
                 "El daño mágico de 20 debe quedar reducido a 10 por la resistencia del 50 %.");
     }
 
@@ -117,7 +120,7 @@ class DanioTest {
         assertEquals(60, dragon.getVida(), "La vida debe bajar de 100 a 60.");
         assertEquals(2, dragon.getFaseActual(), "Con 60 de vida el dragón debe entrar en la fase 2.");
         assertTrue(dragon.isAlientoDeFuego(), "El aliento de fuego debe activarse desde la fase 2.");
-        assertEquals(Reglas.DANIO_DRAGON + Reglas.BONO_ALIENTO + Reglas.BONO_FASE,
+        assertEquals(Reglas.DANIO_DRAGON + BREATH_BONUS + PHASE_BONUS,
                 dragon.getDanioAtaque(),
                 "En la fase 2 el daño debe sumar el bono de aliento y un bono de fase.");
 
@@ -126,49 +129,49 @@ class DanioTest {
         assertEquals(20, dragon.getVida(), "La vida debe bajar de 60 a 20.");
         assertEquals(3, dragon.getFaseActual(), "Con 20 de vida el dragón debe entrar en la fase 3.");
         assertTrue(dragon.isAlientoDeFuego(), "El aliento de fuego debe seguir activo en la fase 3.");
-        assertEquals(Reglas.DANIO_DRAGON + Reglas.BONO_ALIENTO + Reglas.BONO_FASE * 2,
+        assertEquals(Reglas.DANIO_DRAGON + BREATH_BONUS + PHASE_BONUS * 2,
                 dragon.getDanioAtaque(),
                 "En la fase 3 el daño debe sumar el bono de aliento y dos bonos de fase.");
     }
 
     @Test
     void healingNeverExceedsMaximumLife() {
-        Aventurero aventurero = new Aventurero(1, "Aventurero", 1, 90, 100, 20, 50, 1);
+        Aventurero adventurer = new Aventurero(1, "Aventurero", 1, 90, 100, 20, 50, 1);
 
-        aventurero.curar(50);
+        adventurer.curar(50);
 
-        assertEquals(100, aventurero.getVida(),
+        assertEquals(100, adventurer.getVida(),
                 "La curación debe quedar limitada por la vida máxima.");
 
-        aventurero.curar(10);
+        adventurer.curar(10);
 
-        assertEquals(100, aventurero.getVida(),
+        assertEquals(100, adventurer.getVida(),
                 "Curar con la vida al máximo no debe modificarla.");
     }
 
     @Test
     void adventurerIsDefeatedAtZeroLife() {
-        Aventurero aventurero = new Aventurero(1, "Aventurero", 1, 20, 100, 20, 50, 1);
+        Aventurero adventurer = new Aventurero(1, "Aventurero", 1, 20, 100, 20, 50, 1);
 
-        aventurero.recibirDanio(20);
+        adventurer.recibirDanio(20);
 
-        assertEquals(0, aventurero.getVida(), "La vida no debe quedar negativa.");
-        assertTrue(aventurero.estaDerrotado(),
+        assertEquals(0, adventurer.getVida(), "La vida no debe quedar negativa.");
+        assertTrue(adventurer.estaDerrotado(),
                 "Un aventurero con 0 de vida debe estar derrotado.");
     }
 
     @Test
     void evictedCreatureIsNotAlive() {
-        Esqueleto esqueleto = new Esqueleto(
+        Esqueleto skeleton = new Esqueleto(
                 1, "Esqueleto", 100, 100, 1, Reglas.DANIO_ESQUELETO, 1, false, 40);
 
-        assertTrue(esqueleto.estaViva(), "La criatura recién creada debe estar viva.");
+        assertTrue(skeleton.estaViva(), "La criatura recién creada debe estar viva.");
 
-        esqueleto.marcarEvadida();
+        skeleton.marcarEvadida();
 
-        assertFalse(esqueleto.estaViva(),
+        assertFalse(skeleton.estaViva(),
                 "Una criatura evadida no debe considerarse viva.");
-        assertFalse(esqueleto.estaDerrotado(),
+        assertFalse(skeleton.estaDerrotado(),
                 "Una criatura evadida no está derrotada, solo quedó atrás.");
     }
 }
