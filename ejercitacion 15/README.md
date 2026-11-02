@@ -1,8 +1,8 @@
 # Mazmorra
 
-juego por turnos en java
+Juego de mazmorra por turnos en Java.
 
-dividido en capas: `model` → `dao` (interfaces + implementación MySQL) → `service` → `Main`.
+Dividido en capas: `model` → `dao` (interfaces + implementación MySQL) → `service` → `Main`.
 
 ## Requisitos
 
