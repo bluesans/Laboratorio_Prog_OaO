@@ -1,11 +1,14 @@
 package com.mazmorra.service.impl;
 
+import com.mazmorra.Reglas;
 import com.mazmorra.dao.AventureroDAO;
 import com.mazmorra.dao.CriaturaDAO;
 import com.mazmorra.dao.impl.AventureroDAOMySQL;
 import com.mazmorra.dao.impl.CriaturaDAOMySQL;
-import com.mazmorra.db.Conexion;
+import com.mazmorra.db.Transaccion;
+import com.mazmorra.db.impl.TransaccionMySQL;
 import com.mazmorra.exception.AventureroDerrotadoException;
+import com.mazmorra.exception.CriaturaEvadidaException;
 import com.mazmorra.exception.CriaturaYaDerrotadaException;
 import com.mazmorra.exception.CriaturasPendientesException;
 import com.mazmorra.exception.DanioInvalidoException;
@@ -17,29 +20,30 @@ import com.mazmorra.exception.VidaCompletaException;
 import com.mazmorra.model.Aventurero;
 import com.mazmorra.model.Criatura;
 import com.mazmorra.model.Danable;
-import com.mazmorra.model.Orco;
 import com.mazmorra.model.TipoAtaque;
 import com.mazmorra.service.JuegoService;
 
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class JuegoServiceImpl implements JuegoService {
 
-    private static final int ORO_POR_NIVEL_AMENAZA = 5;
-
     private final CriaturaDAO criaturaDAO;
     private final AventureroDAO aventureroDAO;
+    private final Transaccion transaccion;
 
     public JuegoServiceImpl() {
-        this(new CriaturaDAOMySQL(), new AventureroDAOMySQL());
+        this(new CriaturaDAOMySQL(), new AventureroDAOMySQL(), new TransaccionMySQL());
     }
 
-    public JuegoServiceImpl(CriaturaDAO criaturaDAO, AventureroDAO aventureroDAO) {
-        this.criaturaDAO = criaturaDAO;
-        this.aventureroDAO = aventureroDAO;
+    public JuegoServiceImpl(CriaturaDAO criaturaDAO, AventureroDAO aventureroDAO, Transaccion transaccion) {
+        this.criaturaDAO = Objects.requireNonNull(
+                criaturaDAO, "El DAO de criaturas no puede ser nulo.");
+        this.aventureroDAO = Objects.requireNonNull(
+                aventureroDAO, "El DAO de aventureros no puede ser nulo.");
+        this.transaccion = Objects.requireNonNull(
+                transaccion, "La transacción no puede ser nula.");
     }
 
     @Override
@@ -55,8 +59,9 @@ public class JuegoServiceImpl implements JuegoService {
             throw new IllegalArgumentException("El ataque base debe ser mayor que cero.");
         }
 
-        // Arranca en el piso 1 con 50 de oro.
-        Aventurero aventurero = new Aventurero(0, nombre, 1, vidaMaxima, vidaMaxima, ataqueBase, 50, 1);
+        // Arranca en el piso 1 con el oro inicial.
+        Aventurero aventurero = new Aventurero(
+                0, nombre, 1, vidaMaxima, vidaMaxima, ataqueBase, Reglas.ORO_INICIAL, Reglas.PISO_INICIAL);
         int id = aventureroDAO.insertar(aventurero);
         aventurero.setId(id);
         return aventurero;
@@ -86,177 +91,49 @@ public class JuegoServiceImpl implements JuegoService {
     }
 
     @Override
-    public void resolverAtaque(Danable objetivo, int danio)
-            throws DanioInvalidoException, CriaturaYaDerrotadaException,
-            AventureroDerrotadoException, PersistenciaException {
-        resolverAtaque(objetivo, danio, TipoAtaque.FISICO);
-    }
-
-    @Override
     public void resolverAtaque(Danable objetivo, int danio, TipoAtaque tipoAtaque)
             throws DanioInvalidoException, CriaturaYaDerrotadaException,
-            AventureroDerrotadoException, PersistenciaException {
-        if (objetivo == null) {
-            throw new DanioInvalidoException("No se puede atacar a un objetivo nulo.");
+            CriaturaEvadidaException, AventureroDerrotadoException,
+            PersistenciaException {
+        try {
+            transaccion.ejecutar((criaturas, aventureros) -> {
+                aplicarAtaque(objetivo, danio, tipoAtaque, criaturas, aventureros);
+                return null;
+            });
+        } catch (JuegoException e) {
+            relanzarAtaque(e);
         }
-        if (danio <= 0) {
-            throw new DanioInvalidoException("El daño debe ser mayor que cero: " + danio);
-        }
-        if (objetivo.estaDerrotado()) {
-            if (objetivo instanceof Criatura criaturaDerrotada) {
-                throw new CriaturaYaDerrotadaException(
-                        "La criatura ya estaba derrotada: " + criaturaDerrotada.getNombre());
-            }
-            if (objetivo instanceof Aventurero aventureroDerrotado) {
-                throw new AventureroDerrotadoException(
-                        "El aventurero ya estaba derrotado: " + aventureroDerrotado.getNombre());
-            }
-        }
-
-        if (objetivo instanceof Criatura criaturaEvadida && criaturaEvadida.isEvadida()) {
-            throw new IllegalArgumentException(
-                    criaturaEvadida.getNombre() + " quedó atrás al huir y ya no puede pelear.");
-        }
-
-        TipoAtaque tipo = tipoAtaque == null ? TipoAtaque.FISICO : tipoAtaque;
-
-        if (objetivo instanceof Criatura criatura) {
-            aplicarAtaqueCriatura(criatura, danio, tipo);
-            criaturaDAO.actualizar(criatura);
-        } else {
-            // Se resuelve por la interfaz, no por la clase concreta.
-            objetivo.recibirDanio(danio);
-            if (objetivo instanceof Aventurero aventurero) {
-                aventureroDAO.actualizar(aventurero);
-            }
-        }
-    }
-
-    private void aplicarAtaqueCriatura(Criatura criatura, int danio, TipoAtaque tipoAtaque)
-            throws DanioInvalidoException, CriaturaYaDerrotadaException {
-        if (danio <= 0) {
-            throw new DanioInvalidoException("El daño debe ser mayor que cero: " + danio);
-        }
-        if (criatura.estaDerrotado()) {
-            throw new CriaturaYaDerrotadaException(
-                    "La criatura ya estaba derrotada: " + criatura.getNombre());
-        }
-        if (criatura.isEvadida()) {
-            throw new IllegalArgumentException(
-                    criatura.getNombre() + " quedó atrás al huir y ya no puede pelear.");
-        }
-        criatura.recibirDanio(danio, tipoAtaque == null ? TipoAtaque.FISICO : tipoAtaque);
-    }
-
-    @Override
-    public void contraatacarSiCorresponde(Orco orco, Danable objetivo)
-            throws AventureroDerrotadoException, PersistenciaException {
-        if (orco == null || objetivo == null) {
-            return;
-        }
-        aplicarContraataque(orco, objetivo);
-        if (objetivo instanceof Aventurero aventurero) {
-            aventureroDAO.actualizar(aventurero);
-        } else if (objetivo instanceof Criatura criatura) {
-            criaturaDAO.actualizar(criatura);
-        }
-    }
-
-    private void aplicarContraataque(Orco orco, Danable objetivo)
-            throws AventureroDerrotadoException {
-        if (orco.estaDerrotado()) {
-            // Un orco muerto ya no devuelve el golpe.
-            return;
-        }
-        if (!orco.estaViva()) {
-            return;
-        }
-        if (objetivo instanceof Aventurero aventurero && aventurero.estaDerrotado()) {
-            throw new AventureroDerrotadoException(
-                    "El aventurero ya estaba derrotado: " + aventurero.getNombre());
-        }
-        objetivo.recibirDanio(orco.getDanioAtaque());
-    }
-
-    @Override
-    public void turnoEnemigo(Aventurero aventurero, Criatura criatura)
-            throws AventureroDerrotadoException, PersistenciaException {
-        if (aventurero == null || criatura == null) {
-            throw new IllegalArgumentException("El aventurero y la criatura no pueden ser nulos.");
-        }
-        aplicarTurnoEnemigo(aventurero, criatura);
-        aventureroDAO.actualizar(aventurero);
-    }
-
-    private void aplicarTurnoEnemigo(Aventurero aventurero, Criatura criatura)
-            throws AventureroDerrotadoException {
-        if (aventurero.estaDerrotado()) {
-            throw new AventureroDerrotadoException(
-                    "El aventurero ya estaba derrotado: " + aventurero.getNombre());
-        }
-        if (criatura.estaDerrotado()) {
-            return;
-        }
-        if (!criatura.estaViva()) {
-            return;
-        }
-        aventurero.recibirDanio(criatura.getDanioAtaque());
     }
 
     @Override
     public void resolverTurno(Aventurero aventurero, Criatura criatura, TipoAtaque tipoAtaque)
             throws AventureroDerrotadoException, CriaturaYaDerrotadaException,
-            DanioInvalidoException, PersistenciaException {
+            CriaturaEvadidaException, DanioInvalidoException,
+            PersistenciaException {
         if (aventurero == null || criatura == null) {
             throw new IllegalArgumentException("El aventurero y la criatura no pueden ser nulos.");
         }
-        // Validación y normalización antes de abrir la conexión.
+        // Validación y normalización antes de abrir la transacción.
         TipoAtaque tipo = tipoAtaque == null ? TipoAtaque.FISICO : tipoAtaque;
 
-        try (Connection cn = Conexion.getConexion()) {
-            cn.setAutoCommit(false);
-            try {
-                aplicarAtaqueCriatura(criatura, aventurero.getAtaqueBase(), tipo);
-                if (!criaturaDAO.actualizar(criatura, cn)) {
+        try {
+            transaccion.ejecutar((criaturas, aventureros) -> {
+                if (!aplicarAtaque(criatura, aventurero.getAtaqueBase(), tipo, criaturas, aventureros)) {
                     throw new PersistenciaException(
                             "Sin filas actualizadas para criatura id " + criatura.getId());
                 }
 
                 if (criatura.estaViva()) {
-                    if (criatura instanceof Orco orco) {
-                        aplicarContraataque(orco, aventurero);
-                    } else {
-                        aplicarTurnoEnemigo(aventurero, criatura);
-                    }
-                    if (!aventureroDAO.actualizar(aventurero, cn)) {
-                        throw new PersistenciaException(
-                                "Sin filas actualizadas para aventurero id " + aventurero.getId());
-                    }
+                    aplicarTurnoEnemigo(aventurero, criatura, aventureros);
                 }
 
                 if (criatura.estaDerrotado()) {
-                    pagarRecompensaEnTransaccion(aventurero, criatura, cn);
+                    pagarRecompensaEnTransaccion(aventurero, criatura, criaturas, aventureros);
                 }
-                cn.commit();
-            } catch (SQLException e) {
-                try {
-                    cn.rollback();
-                } catch (SQLException rollbackError) {
-                    e.addSuppressed(rollbackError);
-                }
-                throw new PersistenciaException(
-                        "Error al resolver el turno de " + aventurero.getNombre() + ".", e);
-            } catch (PersistenciaException e) {
-                try {
-                    cn.rollback();
-                } catch (SQLException rollbackError) {
-                    e.addSuppressed(rollbackError);
-                }
-                throw e;
-            }
-        } catch (SQLException e) {
-            throw new PersistenciaException(
-                    "Error al resolver el turno de " + aventurero.getNombre() + ".", e);
+                return null;
+            });
+        } catch (JuegoException e) {
+            relanzarAtaque(e);
         }
     }
 
@@ -322,51 +199,27 @@ public class JuegoServiceImpl implements JuegoService {
             throw new IllegalArgumentException("No hace falta huir de una criatura ya derrotada.");
         }
 
-        // Huir cuesta hasta 10 de oro, la criatura golpea al escapar y queda atrás.
-        aventurero.setOro(Math.max(0, aventurero.getOro() - COSTO_HUIDA));
-        aventurero.recibirDanio(criatura.getDanioAtaque());
-        criatura.marcarEvadida();
+        try {
+            transaccion.ejecutar((criaturas, aventureros) -> {
+                // Huir cuesta hasta el costo de huida, la criatura golpea al escapar y queda atrás.
+                aventurero.setOro(Math.max(0, aventurero.getOro() - Reglas.COSTO_HUIDA));
+                aventurero.recibirDanio(criatura.getDanioAtaque());
+                criatura.marcarEvadida();
 
-        // Las dos filas se actualizan en una sola transacción: o se guardan ambas o ninguna.
-        try (Connection cn = Conexion.getConexion()) {
-            cn.setAutoCommit(false);
-            try {
-                if (!aventureroDAO.actualizar(aventurero, cn)) {
+                // Las dos filas se actualizan en una sola transacción: o se guardan ambas o ninguna.
+                if (!aventureros.actualizar(aventurero)) {
                     throw new PersistenciaException(
                             "Sin filas actualizadas para aventurero id " + aventurero.getId());
                 }
-                if (!criaturaDAO.actualizar(criatura, cn)) {
+                if (!criaturas.actualizar(criatura)) {
                     throw new PersistenciaException(
                             "Sin filas actualizadas para criatura id " + criatura.getId());
                 }
-                cn.commit();
-            } catch (SQLException e) {
-                try {
-                    cn.rollback();
-                } catch (SQLException rollbackError) {
-                    e.addSuppressed(rollbackError);
-                }
-                throw new PersistenciaException(
-                        "Error al persistir la huida de " + aventurero.getNombre() + ".", e);
-            } catch (PersistenciaException e) {
-                try {
-                    cn.rollback();
-                } catch (SQLException rollbackError) {
-                    e.addSuppressed(rollbackError);
-                }
-                throw e;
-            }
-        } catch (SQLException e) {
-            throw new PersistenciaException(
-                    "Error al persistir la huida de " + aventurero.getNombre() + ".", e);
+                return null;
+            });
+        } catch (JuegoException e) {
+            relanzarHuida(e);
         }
-    }
-
-    @Override
-    public void usarPocion(Aventurero aventurero, int cantidad)
-            throws VidaCompletaException, AventureroDerrotadoException,
-            OroInsuficienteException, PersistenciaException {
-        usarPocion(aventurero, cantidad, null);
     }
 
     @Override
@@ -390,109 +243,30 @@ public class JuegoServiceImpl implements JuegoService {
         }
         int faltante = aventurero.getVidaMaxima() - aventurero.getVida();
         int curado = Math.min(cantidad, faltante);
-        int costo = (int) Math.ceil((double) COSTO_POCION * curado / TAMANO_POCION);
+        int costo = (int) Math.ceil((double) Reglas.COSTO_POCION * curado / Reglas.TAMANO_POCION);
         if (aventurero.getOro() < costo) {
             throw new OroInsuficienteException(
                     "La poción cuesta " + costo + " de oro y " + aventurero.getNombre()
                     + " solo tiene " + aventurero.getOro() + ".");
         }
 
-        // Pago, curación y golpe del enemigo se guardan en una sola transacción.
-        try (Connection cn = Conexion.getConexion()) {
-            cn.setAutoCommit(false);
-            try {
+        try {
+            transaccion.ejecutar((criaturas, aventureros) -> {
+                // Pago, curación y golpe del enemigo se guardan en una sola transacción.
                 aventurero.setOro(aventurero.getOro() - costo);
                 aventurero.curar(curado);
-                if (!aventureroDAO.actualizar(aventurero, cn)) {
+                if (!aventureros.actualizar(aventurero)) {
                     throw new PersistenciaException(
                             "Sin filas actualizadas para aventurero id " + aventurero.getId());
                 }
                 if (enemigo != null && enemigo.estaViva()) {
-                    aplicarTurnoEnemigo(aventurero, enemigo);
-                    if (!aventureroDAO.actualizar(aventurero, cn)) {
-                        throw new PersistenciaException(
-                                "Sin filas actualizadas para aventurero id " + aventurero.getId());
-                    }
+                    aplicarTurnoEnemigo(aventurero, enemigo, aventureros);
                 }
-                cn.commit();
-            } catch (SQLException e) {
-                try {
-                    cn.rollback();
-                } catch (SQLException rollbackError) {
-                    e.addSuppressed(rollbackError);
-                }
-                throw new PersistenciaException(
-                        "Error al usar la poción de " + aventurero.getNombre() + ".", e);
-            } catch (PersistenciaException e) {
-                try {
-                    cn.rollback();
-                } catch (SQLException rollbackError) {
-                    e.addSuppressed(rollbackError);
-                }
-                throw e;
-            }
-        } catch (SQLException e) {
-            throw new PersistenciaException(
-                    "Error al usar la poción de " + aventurero.getNombre() + ".", e);
+                return null;
+            });
+        } catch (JuegoException e) {
+            relanzarPocion(e);
         }
-    }
-
-    @Override
-    public int otorgarRecompensa(Aventurero aventurero, Criatura criatura)
-            throws AventureroDerrotadoException, PersistenciaException {
-        if (aventurero == null || criatura == null) {
-            throw new IllegalArgumentException("El aventurero y la criatura no pueden ser nulos.");
-        }
-        int recompensa = aplicarRecompensa(aventurero, criatura);
-        criaturaDAO.actualizar(criatura);
-        aventureroDAO.actualizar(aventurero);
-        return recompensa;
-    }
-
-    private int aplicarRecompensa(Aventurero aventurero, Criatura criatura)
-            throws AventureroDerrotadoException {
-        if (aventurero.estaDerrotado()) {
-            throw new AventureroDerrotadoException(
-                    "El aventurero está derrotado y no puede cobrar recompensas: " + aventurero.getNombre());
-        }
-        if (criatura.isEvadida()) {
-            throw new IllegalArgumentException(
-                    criatura.getNombre() + " quedó atrás al huir y no paga recompensa.");
-        }
-        if (!criatura.estaDerrotado()) {
-            throw new IllegalArgumentException(
-                    "No hay recompensa: " + criatura.getNombre() + " sigue en pie.");
-        }
-        if (criatura.isRecompensaPagada()) {
-            throw new IllegalArgumentException(
-                    "La recompensa de " + criatura.getNombre() + " ya fue cobrada.");
-        }
-
-        // La recompensa escala con el nivel de amenaza.
-        int recompensa = criatura.getNivelAmenaza() * ORO_POR_NIVEL_AMENAZA;
-        criatura.marcarRecompensaPagada();
-        aventurero.setOro(aventurero.getOro() + recompensa);
-        return recompensa;
-    }
-
-    private int pagarRecompensaEnTransaccion(Aventurero aventurero, Criatura criatura, Connection cn)
-            throws PersistenciaException {
-        // Si otra ejecución ya pagó, no se vuelve a cobrar.
-        if (criatura.isRecompensaPagada()) {
-            return 0;
-        }
-        int recompensa = criatura.getNivelAmenaza() * ORO_POR_NIVEL_AMENAZA;
-        criatura.marcarRecompensaPagada();
-        if (!criaturaDAO.actualizar(criatura, cn)) {
-            throw new PersistenciaException(
-                    "Sin filas actualizadas para criatura id " + criatura.getId());
-        }
-        aventurero.setOro(aventurero.getOro() + recompensa);
-        if (!aventureroDAO.actualizar(aventurero, cn)) {
-            throw new PersistenciaException(
-                    "Sin filas actualizadas para aventurero id " + aventurero.getId());
-        }
-        return recompensa;
     }
 
     @Override
@@ -500,12 +274,6 @@ public class JuegoServiceImpl implements JuegoService {
         return aventureroDAO.buscarPorId(idAventurero)
                 .orElseThrow(() -> new PersistenciaException(
                         "No existe un aventurero con id " + idAventurero));
-    }
-
-    @Override
-    public void reiniciarPartida() throws PersistenciaException {
-        criaturaDAO.eliminarTodas();
-        aventureroDAO.eliminarTodos();
     }
 
     @Override
@@ -524,36 +292,171 @@ public class JuegoServiceImpl implements JuegoService {
             throw new IllegalArgumentException("El escenario inicial no puede ser nulo.");
         }
 
-        try (Connection cn = Conexion.getConexion()) {
-            cn.setAutoCommit(false);
-            try {
-                criaturaDAO.eliminarTodas(cn);
-                aventureroDAO.eliminarTodos(cn);
-                Aventurero aventurero = new Aventurero(
-                        0, nombre, 1, vidaMaxima, vidaMaxima, ataqueBase, 50, 1);
-                int id = aventureroDAO.insertar(aventurero, cn);
-                for (Criatura criatura : escenario) {
-                    criaturaDAO.insertar(criatura, cn);
-                }
-                cn.commit();
-                return id;
-            } catch (SQLException e) {
-                try {
-                    cn.rollback();
-                } catch (SQLException rollbackError) {
-                    e.addSuppressed(rollbackError);
-                }
-                throw new PersistenciaException("Error al iniciar la nueva partida.", e);
-            } catch (PersistenciaException e) {
-                try {
-                    cn.rollback();
-                } catch (SQLException rollbackError) {
-                    e.addSuppressed(rollbackError);
-                }
-                throw e;
+        return transaccion.ejecutar((criaturas, aventureros) -> {
+            criaturas.eliminarTodas();
+            aventureros.eliminarTodos();
+            Aventurero aventurero = new Aventurero(
+                    0, nombre, 1, vidaMaxima, vidaMaxima, ataqueBase,
+                    Reglas.ORO_INICIAL, Reglas.PISO_INICIAL);
+            int id = aventureros.insertar(aventurero);
+            for (Criatura criatura : escenario) {
+                criaturas.insertar(criatura);
             }
-        } catch (SQLException e) {
-            throw new PersistenciaException("Error al iniciar la nueva partida.", e);
+            return id;
+        });
+    }
+
+    private boolean aplicarAtaque(Danable objetivo, int danio, TipoAtaque tipoAtaque,
+            CriaturaDAO criaturas, AventureroDAO aventureros)
+            throws DanioInvalidoException, CriaturaYaDerrotadaException,
+            CriaturaEvadidaException, AventureroDerrotadoException,
+            PersistenciaException {
+        if (objetivo == null) {
+            throw new DanioInvalidoException("No se puede atacar a un objetivo nulo.");
         }
+        if (danio <= 0) {
+            throw new DanioInvalidoException("El daño debe ser mayor que cero: " + danio);
+        }
+        if (objetivo.estaDerrotado()) {
+            if (objetivo instanceof Criatura criaturaDerrotada) {
+                throw new CriaturaYaDerrotadaException(
+                        "La criatura ya estaba derrotada: " + criaturaDerrotada.getNombre());
+            }
+            if (objetivo instanceof Aventurero aventureroDerrotado) {
+                throw new AventureroDerrotadoException(
+                        "El aventurero ya estaba derrotado: " + aventureroDerrotado.getNombre());
+            }
+        }
+
+        if (objetivo instanceof Criatura criaturaEvadida && criaturaEvadida.isEvadida()) {
+            throw new CriaturaEvadidaException(
+                    criaturaEvadida.getNombre() + " quedó atrás al huir y ya no puede pelear.");
+        }
+
+        TipoAtaque tipo = tipoAtaque == null ? TipoAtaque.FISICO : tipoAtaque;
+
+        if (objetivo instanceof Criatura criatura) {
+            aplicarAtaqueCriatura(criatura, danio, tipo);
+            return criaturas.actualizar(criatura);
+        }
+
+        // Se resuelve por la interfaz, no por la clase concreta.
+        objetivo.recibirDanio(danio);
+        if (objetivo instanceof Aventurero aventurero) {
+            return aventureros.actualizar(aventurero);
+        }
+        return true;
+    }
+
+    private void aplicarAtaqueCriatura(Criatura criatura, int danio, TipoAtaque tipoAtaque)
+            throws DanioInvalidoException, CriaturaYaDerrotadaException,
+            CriaturaEvadidaException {
+        if (danio <= 0) {
+            throw new DanioInvalidoException("El daño debe ser mayor que cero: " + danio);
+        }
+        if (criatura.estaDerrotado()) {
+            throw new CriaturaYaDerrotadaException(
+                    "La criatura ya estaba derrotada: " + criatura.getNombre());
+        }
+        if (criatura.isEvadida()) {
+            throw new CriaturaEvadidaException(
+                    criatura.getNombre() + " quedó atrás al huir y ya no puede pelear.");
+        }
+        criatura.recibirDanio(danio, tipoAtaque == null ? TipoAtaque.FISICO : tipoAtaque);
+    }
+
+    private void aplicarTurnoEnemigo(Aventurero aventurero, Criatura criatura, AventureroDAO aventureros)
+            throws AventureroDerrotadoException, PersistenciaException {
+        if (aventurero.estaDerrotado()) {
+            throw new AventureroDerrotadoException(
+                    "El aventurero ya estaba derrotado: " + aventurero.getNombre());
+        }
+        if (criatura.estaDerrotado()) {
+            return;
+        }
+        if (!criatura.estaViva()) {
+            return;
+        }
+        aventurero.recibirDanio(criatura.getDanioAtaque());
+        if (!aventureros.actualizar(aventurero)) {
+            throw new PersistenciaException(
+                    "Sin filas actualizadas para aventurero id " + aventurero.getId());
+        }
+    }
+
+    private int pagarRecompensaEnTransaccion(Aventurero aventurero, Criatura criatura,
+            CriaturaDAO criaturas, AventureroDAO aventureros)
+            throws PersistenciaException {
+        // Si otra ejecución ya pagó, no se vuelve a cobrar.
+        if (criatura.isRecompensaPagada()) {
+            return 0;
+        }
+        int recompensa = criatura.getNivelAmenaza() * Reglas.ORO_POR_NIVEL_AMENAZA;
+        criatura.marcarRecompensaPagada();
+        if (!criaturas.actualizar(criatura)) {
+            throw new PersistenciaException(
+                    "Sin filas actualizadas para criatura id " + criatura.getId());
+        }
+        aventurero.setOro(aventurero.getOro() + recompensa);
+        if (!aventureros.actualizar(aventurero)) {
+            throw new PersistenciaException(
+                    "Sin filas actualizadas para aventurero id " + aventurero.getId());
+        }
+        return recompensa;
+    }
+
+    private static void relanzarAtaque(JuegoException e)
+            throws DanioInvalidoException, CriaturaYaDerrotadaException,
+            CriaturaEvadidaException, AventureroDerrotadoException,
+            PersistenciaException {
+        if (e instanceof DanioInvalidoException ex) {
+            throw ex;
+        }
+        if (e instanceof CriaturaYaDerrotadaException ex) {
+            throw ex;
+        }
+        if (e instanceof CriaturaEvadidaException ex) {
+            throw ex;
+        }
+        if (e instanceof AventureroDerrotadoException ex) {
+            throw ex;
+        }
+        if (e instanceof PersistenciaException ex) {
+            throw ex;
+        }
+        throw new PersistenciaException(e.getMessage(), e);
+    }
+
+    private static void relanzarPocion(JuegoException e)
+            throws VidaCompletaException, AventureroDerrotadoException,
+            OroInsuficienteException, PersistenciaException {
+        if (e instanceof VidaCompletaException ex) {
+            throw ex;
+        }
+        if (e instanceof AventureroDerrotadoException ex) {
+            throw ex;
+        }
+        if (e instanceof OroInsuficienteException ex) {
+            throw ex;
+        }
+        if (e instanceof PersistenciaException ex) {
+            throw ex;
+        }
+        throw new PersistenciaException(e.getMessage(), e);
+    }
+
+    private static void relanzarHuida(JuegoException e)
+            throws HuidaProhibidaException, AventureroDerrotadoException,
+            PersistenciaException {
+        if (e instanceof HuidaProhibidaException ex) {
+            throw ex;
+        }
+        if (e instanceof AventureroDerrotadoException ex) {
+            throw ex;
+        }
+        if (e instanceof PersistenciaException ex) {
+            throw ex;
+        }
+        throw new PersistenciaException(e.getMessage(), e);
     }
 }

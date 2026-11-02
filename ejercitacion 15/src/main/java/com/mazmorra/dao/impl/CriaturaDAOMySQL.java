@@ -54,7 +54,14 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
     private static final int PARAM_CANTIDAD_FASES = 15;
     private static final int PARAM_ALIENTO_DE_FUEGO = 16;
 
+    private final Connection conexionInyectada;
+
     public CriaturaDAOMySQL() {
+        this.conexionInyectada = null;
+    }
+
+    public CriaturaDAOMySQL(Connection conexion) {
+        this.conexionInyectada = conexion;
     }
 
     @Override
@@ -62,16 +69,18 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
         if (criatura == null) {
             throw new PersistenciaException("No se puede insertar una criatura nula.");
         }
+        if (conexionInyectada != null) {
+            return insertarConConexion(criatura, conexionInyectada);
+        }
         try (Connection cn = Conexion.getConexion()) {
-            return insertar(criatura, cn);
+            return insertarConConexion(criatura, cn);
         } catch (SQLException e) {
             throw new PersistenciaException(
                     "Error al insertar la criatura '" + criatura.getNombre() + "' en la base de datos.", e);
         }
     }
 
-    @Override
-    public int insertar(Criatura criatura, Connection conexion) throws PersistenciaException {
+    private int insertarConConexion(Criatura criatura, Connection conexion) throws PersistenciaException {
         if (criatura == null) {
             throw new PersistenciaException("No se puede insertar una criatura nula.");
         }
@@ -110,16 +119,18 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
         if (criatura == null) {
             throw new PersistenciaException("No se puede actualizar una criatura nula.");
         }
+        if (conexionInyectada != null) {
+            return actualizarConConexion(criatura, conexionInyectada);
+        }
         try (Connection cn = Conexion.getConexion()) {
-            return actualizar(criatura, cn);
+            return actualizarConConexion(criatura, cn);
         } catch (SQLException e) {
             throw new PersistenciaException(
                     "Error al actualizar la criatura con ID " + criatura.getId() + ".", e);
         }
     }
 
-    @Override
-    public boolean actualizar(Criatura criatura, Connection conexion) throws PersistenciaException {
+    private boolean actualizarConConexion(Criatura criatura, Connection conexion) throws PersistenciaException {
         if (criatura == null) {
             throw new PersistenciaException("No se puede actualizar una criatura nula.");
         }
@@ -145,8 +156,20 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
 
     @Override
     public Optional<Criatura> buscarPorId(int id) throws PersistenciaException {
-        try (Connection cn = Conexion.getConexion();
-             PreparedStatement ps = cn.prepareStatement(SQL_BUSCAR_POR_ID)) {
+        if (conexionInyectada != null) {
+            return buscarPorIdConConexion(id, conexionInyectada);
+        }
+        try (Connection cn = Conexion.getConexion()) {
+            return buscarPorIdConConexion(id, cn);
+        } catch (SQLException e) {
+            throw new PersistenciaException(
+                    "Error al buscar la criatura con ID " + id + " en la base de datos.", e);
+        }
+    }
+
+    private Optional<Criatura> buscarPorIdConConexion(int id, Connection conexion)
+            throws PersistenciaException {
+        try (PreparedStatement ps = conexion.prepareStatement(SQL_BUSCAR_POR_ID)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
@@ -162,8 +185,20 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
 
     @Override
     public List<Criatura> listarPorPiso(int piso) throws PersistenciaException {
-        try (Connection cn = Conexion.getConexion();
-             PreparedStatement ps = cn.prepareStatement(SQL_LISTAR_POR_PISO)) {
+        if (conexionInyectada != null) {
+            return listarPorPisoConConexion(piso, conexionInyectada);
+        }
+        try (Connection cn = Conexion.getConexion()) {
+            return listarPorPisoConConexion(piso, cn);
+        } catch (SQLException e) {
+            throw new PersistenciaException(
+                    "Error al listar las criaturas del piso " + piso + ".", e);
+        }
+    }
+
+    private List<Criatura> listarPorPisoConConexion(int piso, Connection conexion)
+            throws PersistenciaException {
+        try (PreparedStatement ps = conexion.prepareStatement(SQL_LISTAR_POR_PISO)) {
             ps.setInt(1, piso);
             try (ResultSet rs = ps.executeQuery()) {
                 return mapearLista(rs);
@@ -176,8 +211,18 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
 
     @Override
     public List<Criatura> listarTodas() throws PersistenciaException {
-        try (Connection cn = Conexion.getConexion();
-             PreparedStatement ps = cn.prepareStatement(SQL_LISTAR_TODAS)) {
+        if (conexionInyectada != null) {
+            return listarTodasConConexion(conexionInyectada);
+        }
+        try (Connection cn = Conexion.getConexion()) {
+            return listarTodasConConexion(cn);
+        } catch (SQLException e) {
+            throw new PersistenciaException("Error al listar todas las criaturas.", e);
+        }
+    }
+
+    private List<Criatura> listarTodasConConexion(Connection conexion) throws PersistenciaException {
+        try (PreparedStatement ps = conexion.prepareStatement(SQL_LISTAR_TODAS)) {
             try (ResultSet rs = ps.executeQuery()) {
                 return mapearLista(rs);
             }
@@ -188,8 +233,18 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
 
     @Override
     public boolean eliminar(int id) throws PersistenciaException {
-        try (Connection cn = Conexion.getConexion();
-             PreparedStatement ps = cn.prepareStatement(SQL_ELIMINAR)) {
+        if (conexionInyectada != null) {
+            return eliminarConConexion(id, conexionInyectada);
+        }
+        try (Connection cn = Conexion.getConexion()) {
+            return eliminarConConexion(id, cn);
+        } catch (SQLException e) {
+            throw new PersistenciaException("Error al eliminar la criatura con ID " + id + ".", e);
+        }
+    }
+
+    private boolean eliminarConConexion(int id, Connection conexion) throws PersistenciaException {
+        try (PreparedStatement ps = conexion.prepareStatement(SQL_ELIMINAR)) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -199,15 +254,17 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
 
     @Override
     public int eliminarTodas() throws PersistenciaException {
+        if (conexionInyectada != null) {
+            return eliminarTodasConConexion(conexionInyectada);
+        }
         try (Connection cn = Conexion.getConexion()) {
-            return eliminarTodas(cn);
+            return eliminarTodasConConexion(cn);
         } catch (SQLException e) {
             throw new PersistenciaException("Error al eliminar todas las criaturas.", e);
         }
     }
 
-    @Override
-    public int eliminarTodas(Connection conexion) throws PersistenciaException {
+    private int eliminarTodasConConexion(Connection conexion) throws PersistenciaException {
         try (PreparedStatement ps = conexion.prepareStatement(SQL_ELIMINAR_TODAS)) {
             return ps.executeUpdate();
         } catch (SQLException e) {

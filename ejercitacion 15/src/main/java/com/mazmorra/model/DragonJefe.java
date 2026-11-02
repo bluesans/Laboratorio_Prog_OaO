@@ -1,5 +1,7 @@
 package com.mazmorra.model;
 
+import com.mazmorra.Reglas;
+
 public class DragonJefe extends Criatura {
 
     private int faseActual;
@@ -40,8 +42,8 @@ public class DragonJefe extends Criatura {
 
     @Override
     public int getDanioAtaque() {
-        return super.getDanioAtaque() + (isAlientoDeFuego() ? 5 : 0)
-                + 5 * (getFaseActual() - 1);
+        return super.getDanioAtaque() + (isAlientoDeFuego() ? Reglas.BONO_ALIENTO : 0)
+                + Reglas.BONO_FASE * (getFaseActual() - 1);
     }
 
     @Override

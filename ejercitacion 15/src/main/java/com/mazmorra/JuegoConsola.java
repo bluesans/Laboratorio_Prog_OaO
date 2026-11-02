@@ -18,14 +18,6 @@ import java.util.Scanner;
 
 public final class JuegoConsola {
 
-    private static final int PISO_FINAL = 3;
-    private static final int VIDA_INICIAL = 100;
-    private static final int ATAQUE_INICIAL = 20;
-    private static final int RESISTENCIA_ESQUELETO = 40;
-    private static final int DANIO_ORCO = 12;
-    private static final int RESISTENCIA_MAGICA_ORCO = 50;
-    private static final int FASES_DRAGON = 3;
-
     private final JuegoService servicio;
     private final Scanner scanner;
 
@@ -100,7 +92,7 @@ public final class JuegoConsola {
         }
 
         int idAventurero = servicio.iniciarNuevaPartida(
-                nombre, VIDA_INICIAL, ATAQUE_INICIAL, construirEscenario());
+                nombre, Reglas.VIDA_INICIAL, Reglas.ATAQUE_INICIAL, construirEscenario());
 
         System.out.println("Partida nueva: " + nombre + " en el piso 1.");
         System.out.println();
@@ -110,12 +102,15 @@ public final class JuegoConsola {
     private List<Criatura> construirEscenario() {
         List<Criatura> escenario = new ArrayList<>();
         escenario.add(new Esqueleto(
-                0, "Esqueleto Oxidado", 25, 25, 2, 12, 1, false, RESISTENCIA_ESQUELETO));
-        escenario.add(new Fantasma(0, "Fantasma del Pasillo", 30, 30, 3, 15, 1, false, true));
-        escenario.add(new Orco(0, "Orco Guardian", 40, 40, 5, DANIO_ORCO, 2, false,
-                RESISTENCIA_MAGICA_ORCO));
+                0, "Esqueleto Oxidado", 25, 25, 2, Reglas.DANIO_ESQUELETO, 1, false,
+                Reglas.RESISTENCIA_ESQUELETO));
+        escenario.add(new Fantasma(
+                0, "Fantasma del Pasillo", 30, 30, 3, Reglas.DANIO_FANTASMA, 1, false, true));
+        escenario.add(new Orco(0, "Orco Guardian", 40, 40, 5, Reglas.DANIO_ORCO, 2, false,
+                Reglas.RESISTENCIA_MAGICA_ORCO));
         escenario.add(new DragonJefe(
-                0, "Jefe Dragón", 60, 60, 10, 10, 3, false, 1, FASES_DRAGON, false));
+                0, "Jefe Dragón", 60, 60, 10, Reglas.DANIO_DRAGON, 3, false, 1,
+                Reglas.FASES_DRAGON, false));
         return escenario;
     }
 
@@ -138,7 +133,7 @@ public final class JuegoConsola {
             }
 
             boolean pisoDespejado = vivas.isEmpty();
-            if (pisoDespejado && aventurero.getPisoActual() >= PISO_FINAL) {
+            if (pisoDespejado && aventurero.getPisoActual() >= Reglas.PISO_FINAL) {
                 System.out.println("Victoria: no queda nadie en pie.");
                 return;
             }
@@ -150,9 +145,9 @@ public final class JuegoConsola {
             }
 
             System.out.println("1) Atacar físico   2) Atacar con magia   3) Huir (-hasta "
-                    + JuegoService.COSTO_HUIDA + " oro y un golpe)");
-            System.out.println("4) Poción (+" + JuegoService.TAMANO_POCION + " vida, hasta "
-                    + JuegoService.COSTO_POCION + " oro)   5) Avanzar de piso");
+                    + Reglas.COSTO_HUIDA + " oro y un golpe)");
+            System.out.println("4) Poción (+" + Reglas.TAMANO_POCION + " vida, hasta "
+                    + Reglas.COSTO_POCION + " oro)   5) Avanzar de piso");
             System.out.println("6) Estado   0) Abandonar");
             System.out.print("Acción: ");
 
@@ -197,9 +192,9 @@ public final class JuegoConsola {
                         }
                         int vidaAntes = aventurero.getVida();
                         int oroAntes = aventurero.getOro();
-                        int curado = Math.min(JuegoService.TAMANO_POCION,
+                        int curado = Math.min(Reglas.TAMANO_POCION,
                                 aventurero.getVidaMaxima() - aventurero.getVida());
-                        servicio.usarPocion(aventurero, JuegoService.TAMANO_POCION, enemigo);
+                        servicio.usarPocion(aventurero, Reglas.TAMANO_POCION, enemigo);
                         System.out.println("Poción: vida " + aventurero.getVida()
                                 + "/" + aventurero.getVidaMaxima() + ". (curó "
                                 + curado + " por " + (oroAntes - aventurero.getOro()) + " de oro)");
@@ -238,30 +233,34 @@ public final class JuegoConsola {
         System.out.println("============================================================");
         System.out.println();
         System.out.println("Objetivo");
-        System.out.println("  Baja los 3 pisos de la mazmorra y derrota al jefe dragón.");
+        System.out.println("  Baja los " + Reglas.PISO_FINAL
+                + " pisos de la mazmorra y derrota al jefe dragón.");
         System.out.println("  Si tu vida llega a 0, pierdes la partida.");
         System.out.println();
         System.out.println("La mazmorra");
-        System.out.println("  Piso 1: Esqueleto Oxidado y Fantasma del Pasillo.");
-        System.out.println("  Piso 2: Orco Guardian.");
-        System.out.println("  Piso 3: Jefe Dragón.");
+        System.out.println("  Piso " + Reglas.PISO_INICIAL
+                + ": Esqueleto Oxidado y Fantasma del Pasillo.");
+        System.out.println("  Piso " + (Reglas.PISO_INICIAL + 1) + ": Orco Guardian.");
+        System.out.println("  Piso " + Reglas.PISO_FINAL + ": Jefe Dragón.");
         System.out.println("  Solo se baja de piso cuando no queda ninguna criatura viva.");
         System.out.println();
         System.out.println("Tu aventurero");
-        System.out.println("  Arranca con " + VIDA_INICIAL + " de vida, " + ATAQUE_INICIAL
-                + " de ataque y 50 de oro, en el piso 1.");
+        System.out.println("  Arranca con " + Reglas.VIDA_INICIAL + " de vida, "
+                + Reglas.ATAQUE_INICIAL + " de ataque y " + Reglas.ORO_INICIAL
+                + " de oro, en el piso " + Reglas.PISO_INICIAL + ".");
         System.out.println();
         System.out.println("Acciones");
-        System.out.println("  1) Atacar físico: " + ATAQUE_INICIAL
-                + " de daño; 12 al Esqueleto y 10 al Fantasma.");
-        System.out.println("  2) Atacar con magia: también " + ATAQUE_INICIAL
-                + ", pero solo 10 contra el Orco;");
+        System.out.println("  1) Atacar físico: " + Reglas.ATAQUE_INICIAL
+                + " de daño; " + Reglas.DANIO_ESQUELETO + " al Esqueleto y "
+                + (Reglas.ATAQUE_INICIAL / 2) + " al Fantasma.");
+        System.out.println("  2) Atacar con magia: también " + Reglas.ATAQUE_INICIAL
+                + ", pero solo " + (Reglas.ATAQUE_INICIAL / 2) + " contra el Orco;");
         System.out.println("     ignora la resistencia del esqueleto y el cuerpo del fantasma.");
         System.out.println("  3) Huir: sales del combate y la criatura queda atrás, sin piso");
-        System.out.println("     bloqueado y sin recompensa; pierdes hasta " + JuegoService.COSTO_HUIDA
+        System.out.println("     bloqueado y sin recompensa; pierdes hasta " + Reglas.COSTO_HUIDA
                 + " de oro y te golpea al escapar.");
-        System.out.println("  4) Poción: cura hasta " + JuegoService.TAMANO_POCION
-                + " de vida; cuesta " + JuegoService.COSTO_POCION + " si curas todo");
+        System.out.println("  4) Poción: cura hasta " + Reglas.TAMANO_POCION
+                + " de vida; cuesta " + Reglas.COSTO_POCION + " si curas todo");
         System.out.println("     y menos si te falta menos. La criatura golpea mientras te curas.");
         System.out.println("  5) Avanzar de piso: exige el piso despejado.");
         System.out.println("  6) Estado: vida, oro y piso actual.");
@@ -269,17 +268,18 @@ public final class JuegoConsola {
         System.out.println("Criaturas");
         System.out.println("  Esqueleto: su resistencia recorta el daño físico.");
         System.out.println("  Fantasma: incorpóreo, recibe la mitad del daño físico.");
-        System.out.println("  Orco: resiste el " + RESISTENCIA_MAGICA_ORCO
+        System.out.println("  Orco: resiste el " + Reglas.RESISTENCIA_MAGICA_ORCO
                 + "% del daño mágico y, si sobrevive al golpe,");
-        System.out.println("  contraataca con " + DANIO_ORCO + " de daño.");
-        System.out.println("  Jefe Dragón: no se puede huir. Tiene " + FASES_DRAGON
+        System.out.println("  contraataca con " + Reglas.DANIO_ORCO + " de daño.");
+        System.out.println("  Jefe Dragón: no se puede huir. Tiene " + Reglas.FASES_DRAGON
                 + " fases que avanza a medida");
         System.out.println("  que pierde vida, y desde la fase 2 se enciende el aliento de fuego.");
         System.out.println();
         System.out.println("Atacar, curarte o huir le dan a la criatura viva la oportunidad de responder.");
         System.out.println();
         System.out.println("Oro");
-        System.out.println("  Cada criatura derrotada paga 5 de oro por nivel de amenaza.");
+        System.out.println("  Cada criatura derrotada paga " + Reglas.ORO_POR_NIVEL_AMENAZA
+                + " de oro por nivel de amenaza.");
         System.out.println("  Sin oro no se puede comprar la poción.");
     }
 
@@ -339,16 +339,11 @@ public final class JuegoConsola {
             return;
         }
 
-        if (objetivo instanceof Orco orco) {
-            System.out.println(orco.getNombre() + " contraataca: recibiste "
-                    + (vidaAntes - actualizado.getVida()) + " de daño.");
-        } else {
-            String golpe = objetivo instanceof DragonJefe dragon && dragon.isAlientoDeFuego()
-                    ? " exhala fuego: recibiste "
-                    : " ataca: recibiste ";
-            System.out.println(objetivo.getNombre() + golpe
-                    + (vidaAntes - actualizado.getVida()) + " de daño.");
-        }
+        String golpe = objetivo instanceof DragonJefe dragon && dragon.isAlientoDeFuego()
+                ? " exhala fuego: recibiste "
+                : " ataca: recibiste ";
+        System.out.println(objetivo.getNombre() + golpe
+                + (vidaAntes - actualizado.getVida()) + " de daño.");
 
         System.out.println("Vida: " + actualizado.getVida() + "/"
                 + actualizado.getVidaMaxima() + ".");

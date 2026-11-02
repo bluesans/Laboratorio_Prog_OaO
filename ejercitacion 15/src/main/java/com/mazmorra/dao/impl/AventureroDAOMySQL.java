@@ -30,7 +30,14 @@ public class AventureroDAOMySQL implements AventureroDAO {
     private static final String SQL_ELIMINAR = "DELETE FROM aventurero WHERE ID = ?";
     private static final String SQL_ELIMINAR_TODOS = "DELETE FROM aventurero";
 
+    private final Connection conexionInyectada;
+
     public AventureroDAOMySQL() {
+        this.conexionInyectada = null;
+    }
+
+    public AventureroDAOMySQL(Connection conexion) {
+        this.conexionInyectada = conexion;
     }
 
     @Override
@@ -38,16 +45,19 @@ public class AventureroDAOMySQL implements AventureroDAO {
         if (aventurero == null) {
             throw new PersistenciaException("No se puede insertar un aventurero nulo.");
         }
+        if (conexionInyectada != null) {
+            return insertarConConexion(aventurero, conexionInyectada);
+        }
         try (Connection cn = Conexion.getConexion()) {
-            return insertar(aventurero, cn);
+            return insertarConConexion(aventurero, cn);
         } catch (SQLException e) {
             throw new PersistenciaException(
                     "Error al insertar el aventurero '" + aventurero.getNombre() + "' en la base de datos.", e);
         }
     }
 
-    @Override
-    public int insertar(Aventurero aventurero, Connection conexion) throws PersistenciaException {
+    private int insertarConConexion(Aventurero aventurero, Connection conexion)
+            throws PersistenciaException {
         if (aventurero == null) {
             throw new PersistenciaException("No se puede insertar un aventurero nulo.");
         }
@@ -81,16 +91,19 @@ public class AventureroDAOMySQL implements AventureroDAO {
         if (aventurero == null) {
             throw new PersistenciaException("No se puede actualizar un aventurero nulo.");
         }
+        if (conexionInyectada != null) {
+            return actualizarConConexion(aventurero, conexionInyectada);
+        }
         try (Connection cn = Conexion.getConexion()) {
-            return actualizar(aventurero, cn);
+            return actualizarConConexion(aventurero, cn);
         } catch (SQLException e) {
             throw new PersistenciaException(
                     "Error al actualizar el aventurero con ID " + aventurero.getId() + ".", e);
         }
     }
 
-    @Override
-    public boolean actualizar(Aventurero aventurero, Connection conexion) throws PersistenciaException {
+    private boolean actualizarConConexion(Aventurero aventurero, Connection conexion)
+            throws PersistenciaException {
         if (aventurero == null) {
             throw new PersistenciaException("No se puede actualizar un aventurero nulo.");
         }
@@ -112,9 +125,21 @@ public class AventureroDAOMySQL implements AventureroDAO {
 
     @Override
     public Optional<Aventurero> buscarPorId(int id) throws PersistenciaException {
+        if (conexionInyectada != null) {
+            return buscarPorIdConConexion(id, conexionInyectada);
+        }
+        try (Connection cn = Conexion.getConexion()) {
+            return buscarPorIdConConexion(id, cn);
+        } catch (SQLException e) {
+            throw new PersistenciaException(
+                    "Error al buscar el aventurero con ID " + id + " en la base de datos.", e);
+        }
+    }
+
+    private Optional<Aventurero> buscarPorIdConConexion(int id, Connection conexion)
+            throws PersistenciaException {
         // Sin fila devuelve un Optional vacío, no null.
-        try (Connection cn = Conexion.getConexion();
-             PreparedStatement ps = cn.prepareStatement(SQL_BUSCAR_POR_ID)) {
+        try (PreparedStatement ps = conexion.prepareStatement(SQL_BUSCAR_POR_ID)) {
             ps.setInt(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
@@ -130,8 +155,18 @@ public class AventureroDAOMySQL implements AventureroDAO {
 
     @Override
     public List<Aventurero> listarTodos() throws PersistenciaException {
-        try (Connection cn = Conexion.getConexion();
-             PreparedStatement ps = cn.prepareStatement(SQL_LISTAR_TODOS)) {
+        if (conexionInyectada != null) {
+            return listarTodosConConexion(conexionInyectada);
+        }
+        try (Connection cn = Conexion.getConexion()) {
+            return listarTodosConConexion(cn);
+        } catch (SQLException e) {
+            throw new PersistenciaException("Error al listar todos los aventureros.", e);
+        }
+    }
+
+    private List<Aventurero> listarTodosConConexion(Connection conexion) throws PersistenciaException {
+        try (PreparedStatement ps = conexion.prepareStatement(SQL_LISTAR_TODOS)) {
             try (ResultSet rs = ps.executeQuery()) {
                 List<Aventurero> aventureros = new ArrayList<>();
                 while (rs.next()) {
@@ -146,8 +181,18 @@ public class AventureroDAOMySQL implements AventureroDAO {
 
     @Override
     public boolean eliminar(int id) throws PersistenciaException {
-        try (Connection cn = Conexion.getConexion();
-             PreparedStatement ps = cn.prepareStatement(SQL_ELIMINAR)) {
+        if (conexionInyectada != null) {
+            return eliminarConConexion(id, conexionInyectada);
+        }
+        try (Connection cn = Conexion.getConexion()) {
+            return eliminarConConexion(id, cn);
+        } catch (SQLException e) {
+            throw new PersistenciaException("Error al eliminar el aventurero con ID " + id + ".", e);
+        }
+    }
+
+    private boolean eliminarConConexion(int id, Connection conexion) throws PersistenciaException {
+        try (PreparedStatement ps = conexion.prepareStatement(SQL_ELIMINAR)) {
             ps.setInt(1, id);
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -157,15 +202,17 @@ public class AventureroDAOMySQL implements AventureroDAO {
 
     @Override
     public int eliminarTodos() throws PersistenciaException {
+        if (conexionInyectada != null) {
+            return eliminarTodosConConexion(conexionInyectada);
+        }
         try (Connection cn = Conexion.getConexion()) {
-            return eliminarTodos(cn);
+            return eliminarTodosConConexion(cn);
         } catch (SQLException e) {
             throw new PersistenciaException("Error al eliminar todos los aventureros.", e);
         }
     }
 
-    @Override
-    public int eliminarTodos(Connection conexion) throws PersistenciaException {
+    private int eliminarTodosConConexion(Connection conexion) throws PersistenciaException {
         try (PreparedStatement ps = conexion.prepareStatement(SQL_ELIMINAR_TODOS)) {
             return ps.executeUpdate();
         } catch (SQLException e) {

@@ -12,8 +12,8 @@ Capas: `model` → `dao` (interfaces + implementación MySQL) → `service` → 
 | Maven | 3.9 o superior |
 | MySQL / MariaDB | 8.x / 10.4 |
 
-La única dependencia externa es `com.mysql:mysql-connector-j:8.3.0`, que Maven
-descarga solo.
+La única dependencia de ejecución es `com.mysql:mysql-connector-j:8.3.0`, que
+Maven descarga solo. JUnit 5 está disponible como dependencia de pruebas.
 
 ## Puesta en marcha
 
@@ -46,6 +46,8 @@ descarga solo.
    mvn clean compile
    mvn exec:java
    ```
+
+   Las pruebas (JUnit 5) se ejecutan con `mvn test`.
 
    En Windows, si los acentos se ven mal en la consola, ejecutar antes
    `chcp 65001` para que use UTF-8.
@@ -107,21 +109,26 @@ modela la interfaz.
 ### Uso polimórfico de la interfaz
 
 ```java
-public void resolverAtaque(Danable objetivo, int danio)
+void resolverAtaque(Danable objetivo, int danio, TipoAtaque tipoAtaque)
 ```
 
-El servicio ataca sin conocer la clase concreta: aplica el daño a una criatura o
-a un aventurero con la misma llamada, y el objeto decide cómo reaccionar
-(`Fantasma` reduce el daño físico, `Aventurero` solo descuenta vida). El
-`instanceof` que aparece después no elige cómo se aplica el daño, sino qué DAO
-persiste el objeto actualizado, porque criaturas y aventureros viven en tablas
-distintas.
+La interfaz `Danable` es el parámetro de `resolverAtaque`: el servicio ataca sin
+conocer la clase concreta, aplica el daño a una criatura o a un aventurero con
+la misma llamada, y el objeto decide cómo reaccionar (`Fantasma` reduce el daño
+físico, `Aventurero` solo descuenta vida).
+
+En el juego, la consola llama a `resolverTurno(Aventurero, Criatura,
+TipoAtaque)`, que resuelve el daño con esa misma llamada polimórfica: el método
+privado `aplicarAtaque` recibe un `Danable`. El `instanceof` que aparece después
+no elige cómo se aplica el daño, sino qué DAO persiste el objeto actualizado,
+porque criaturas y aventureros viven en tablas distintas.
 
 ### Reglas de negocio y excepciones
 
 | Regla | Excepción |
 |---|---|
 | No se ataca a una criatura ya derrotada | `CriaturaYaDerrotadaException` |
+| No se ataca a una criatura que quedó atrás al huir | `CriaturaEvadidaException` |
 | El daño debe ser positivo | `DanioInvalidoException` |
 | No se baja de piso con criaturas vivas | `CriaturasPendientesException` |
 | No se puede huir del jefe final | `HuidaProhibidaException` |
@@ -130,7 +137,16 @@ distintas.
 | Un aventurero derrotado no puede actuar | `AventureroDerrotadoException` |
 
 Todas heredan de `JuegoException`, y `PersistenciaException` envuelve los errores
-de JDBC para que la capa de negocio no dependa de `SQLException`.
+de JDBC para que la capa de negocio no dependa de `SQLException`. Una recompensa
+ya pagada no lanza excepción: el servicio devuelve `0` y no vuelve a cobrar.
+
+### Transacciones
+
+El servicio ya no depende de JDBC: depende de la interfaz `db/Transaccion`, que
+le entrega los DAO dentro de un `Trabajo`. `TransaccionMySQL` abre una sola
+conexión, hace `commit` al terminar y `rollback` ante cualquier fallo. La
+interfaz de los DAO ya no expone `Connection`: las operaciones comparten la
+conexión que abrió la capa de persistencia.
 
 ### Persistencia
 
@@ -148,14 +164,16 @@ aunque la base sea relacional y plana.
 src/main/java/com/mazmorra/
 ├── Main.java             punto de entrada
 ├── JuegoConsola.java     menú, combate por turnos y lectura de entrada
-├── db/Conexion.java
+├── Reglas.java           constantes con los valores del juego
+├── db/                   Conexion, Transaccion
+├── db/impl/              TransaccionMySQL
 ├── model/        Danable, TipoAtaque, TipoCriatura, Criatura, Esqueleto,
 │                 Fantasma, Orco, DragonJefe, Aventurero
 ├── dao/          CriaturaDAO, AventureroDAO
 ├── dao/impl/     CriaturaDAOMySQL, AventureroDAOMySQL
 ├── service/      JuegoService
 ├── service/impl/ JuegoServiceImpl
-└── exception/    JuegoException, PersistenciaException y las 7 reglas
+└── exception/    JuegoException, PersistenciaException y las 8 reglas
 sql/schema.sql
 db.properties.example
 ```
