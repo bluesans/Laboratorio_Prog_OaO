@@ -17,68 +17,68 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TransaccionMySQLTest {
 
     @Test
-    void commitsInsertedAdventurer() throws Exception {
-        Aventurero adventurer = new Aventurero(
+    void confirmaElAventureroInsertado() throws Exception {
+        Aventurero aventurero = new Aventurero(
                 0, "Transaccion Commit", 1, 100, 100, 20, 50, 1);
         try {
             int id = new TransaccionMySQL().ejecutar(
-                    (creatures, adventurers) -> adventurers.insertar(adventurer));
+                    (criaturas, aventureros) -> aventureros.insertar(aventurero));
 
-            Aventurero persisted = new AventureroDAOMySQL().buscarPorId(id).orElseThrow();
-            assertEquals(id, persisted.getId(),
+            Aventurero persistido = new AventureroDAOMySQL().buscarPorId(id).orElseThrow();
+            assertEquals(id, persistido.getId(),
                     "El aventurero insertado debe quedar confirmado tras el commit.");
-            assertEquals("Transaccion Commit", persisted.getNombre(),
+            assertEquals("Transaccion Commit", persistido.getNombre(),
                     "El aventurero recuperado debe ser el insertado.");
         } finally {
-            deleteIfInserted(adventurer);
+            borrarSiSeInserto(aventurero);
         }
     }
 
     @Test
-    void rollsBackOnJuegoException() throws Exception {
-        Aventurero adventurer = new Aventurero(
+    void revierteAnteUnaExcepcionDeJuego() throws Exception {
+        Aventurero aventurero = new Aventurero(
                 0, "Transaccion Rollback Juego", 1, 100, 100, 20, 50, 1);
-        JuegoException expected = new JuegoException("Falla simulada");
+        JuegoException esperada = new JuegoException("Falla simulada");
         try {
-            JuegoException thrown = assertThrows(JuegoException.class,
-                    () -> new TransaccionMySQL().ejecutar((creatures, adventurers) -> {
-                        adventurers.insertar(adventurer);
-                        throw expected;
+            JuegoException lanzada = assertThrows(JuegoException.class,
+                    () -> new TransaccionMySQL().ejecutar((criaturas, aventureros) -> {
+                        aventureros.insertar(aventurero);
+                        throw esperada;
                     }));
 
-            assertSame(expected, thrown,
+            assertSame(esperada, lanzada,
                     "La transacción debe propagar la misma excepción de juego.");
-            assertTrue(new AventureroDAOMySQL().buscarPorId(adventurer.getId()).isEmpty(),
+            assertTrue(new AventureroDAOMySQL().buscarPorId(aventurero.getId()).isEmpty(),
                     "El rollback debe descartar el aventurero insertado.");
         } finally {
-            deleteIfInserted(adventurer);
+            borrarSiSeInserto(aventurero);
         }
     }
 
     @Test
-    void rollsBackOnRuntimeException() throws Exception {
-        Aventurero adventurer = new Aventurero(
+    void revierteAnteUnaExcepcionDeEjecucion() throws Exception {
+        Aventurero aventurero = new Aventurero(
                 0, "Transaccion Rollback Runtime", 1, 100, 100, 20, 50, 1);
-        IllegalStateException expected = new IllegalStateException("Falla simulada");
+        IllegalStateException esperada = new IllegalStateException("Falla simulada");
         try {
-            IllegalStateException thrown = assertThrows(IllegalStateException.class,
-                    () -> new TransaccionMySQL().ejecutar((creatures, adventurers) -> {
-                        adventurers.insertar(adventurer);
-                        throw expected;
+            IllegalStateException lanzada = assertThrows(IllegalStateException.class,
+                    () -> new TransaccionMySQL().ejecutar((criaturas, aventureros) -> {
+                        aventureros.insertar(aventurero);
+                        throw esperada;
                     }));
 
-            assertSame(expected, thrown,
+            assertSame(esperada, lanzada,
                     "La transacción debe propagar la misma excepción de ejecución.");
-            assertTrue(new AventureroDAOMySQL().buscarPorId(adventurer.getId()).isEmpty(),
+            assertTrue(new AventureroDAOMySQL().buscarPorId(aventurero.getId()).isEmpty(),
                     "El rollback debe descartar el aventurero insertado.");
         } finally {
-            deleteIfInserted(adventurer);
+            borrarSiSeInserto(aventurero);
         }
     }
 
-    private static void deleteIfInserted(Aventurero adventurer) throws JuegoException {
-        if (adventurer.getId() > 0) {
-            new AventureroDAOMySQL().eliminar(adventurer.getId());
+    private static void borrarSiSeInserto(Aventurero aventurero) throws JuegoException {
+        if (aventurero.getId() > 0) {
+            new AventureroDAOMySQL().eliminar(aventurero.getId());
         }
     }
 }

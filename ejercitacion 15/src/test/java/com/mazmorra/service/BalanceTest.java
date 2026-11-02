@@ -24,100 +24,186 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class BalanceTest {
 
-    private InMemoryCriaturaDAO creatureDAO;
-    private InMemoryAventureroDAO adventurerDAO;
-    private JuegoServiceImpl service;
+    private CriaturaDAOEnMemoria criaturaDAO;
+    private AventureroDAOEnMemoria aventureroDAO;
+    private JuegoServiceImpl servicio;
 
     @BeforeEach
-    void setUp() throws Exception {
-        creatureDAO = new InMemoryCriaturaDAO();
-        adventurerDAO = new InMemoryAventureroDAO();
-        service = new JuegoServiceImpl(
-                creatureDAO, adventurerDAO,
-                new TransaccionDirecta(creatureDAO, adventurerDAO));
+    void preparar() throws Exception {
+        criaturaDAO = new CriaturaDAOEnMemoria();
+        aventureroDAO = new AventureroDAOEnMemoria();
+        servicio = new JuegoServiceImpl(
+                criaturaDAO, aventureroDAO,
+                new TransaccionDirecta(criaturaDAO, aventureroDAO));
     }
 
     @Test
-    void optimalLineWinsWithExactLifeAndGold() throws Exception {
-        int adventurerId = seedScenario();
+    void lineaOptimaGanaCon16DeVida() throws Exception {
+        int idAventurero = sembrarEscenario();
 
-        playGame(adventurerId, TipoAtaque.MAGICO, TipoAtaque.FISICO);
+        jugar(idAventurero, TipoAtaque.MAGICO, TipoAtaque.FISICO);
 
-        Aventurero adventurer = service.obtenerEstadoAventurero(adventurerId);
-        assertTrue(adventurer.estaVivo(),
+        Aventurero aventurero = servicio.obtenerEstadoAventurero(idAventurero);
+        assertTrue(aventurero.estaVivo(),
                 "La línea óptima debe terminar con el aventurero vivo.");
-        assertEquals(16, adventurer.getVida(),
+        assertEquals(16, aventurero.getVida(),
                 "La línea óptima debe terminar con 16 de vida.");
-        assertEquals(150, adventurer.getOro(),
+        assertEquals(150, aventurero.getOro(),
                 "La línea óptima debe terminar con 150 de oro.");
     }
 
     @Test
-    void magicOnlyLineEndsDefeated() throws Exception {
-        int adventurerId = seedScenario();
+    void huidaPermiteGanarSinRecompensaDelEsqueleto() throws Exception {
+        int idAventurero = sembrarEscenario();
+        Aventurero aventurero = servicio.obtenerEstadoAventurero(idAventurero);
+        Criatura esqueleto = buscarViva(idAventurero, "Esqueleto Oxidado");
 
-        playGame(adventurerId, TipoAtaque.MAGICO, TipoAtaque.MAGICO);
+        servicio.huirDeCombate(aventurero, esqueleto);
 
-        Aventurero adventurer = service.obtenerEstadoAventurero(adventurerId);
-        assertTrue(adventurer.estaDerrotado(),
+        pelear(idAventurero, "Fantasma del Pasillo", TipoAtaque.MAGICO);
+        avanzar(idAventurero);
+        pelear(idAventurero, "Orco Guardian", TipoAtaque.FISICO);
+        avanzar(idAventurero);
+        pelear(idAventurero, "Jefe Dragón", TipoAtaque.FISICO);
+
+        Aventurero finalizado = servicio.obtenerEstadoAventurero(idAventurero);
+        assertTrue(finalizado.estaVivo(),
+                "Huir del esqueleto y pelear el resto debe terminar en victoria.");
+        assertEquals(16, finalizado.getVida(),
+                "La victoria tras huir debe terminar con 16 de vida.");
+        assertEquals(130, finalizado.getOro(),
+                "Sin la recompensa del esqueleto deben quedar 130 de oro.");
+    }
+
+    @Test
+    void pocionAntesDelDragonPermiteGanar() throws Exception {
+        int idAventurero = sembrarEscenario();
+
+        pelear(idAventurero, "Esqueleto Oxidado", TipoAtaque.FISICO);
+        pelear(idAventurero, "Fantasma del Pasillo", TipoAtaque.FISICO);
+        avanzar(idAventurero);
+        pelear(idAventurero, "Orco Guardian", TipoAtaque.FISICO);
+
+        Aventurero aventurero = servicio.obtenerEstadoAventurero(idAventurero);
+        assertEquals(34, aventurero.getVida(),
+                "La línea física debe llegar al dragón con 34 de vida.");
+        assertEquals(100, aventurero.getOro(),
+                "Antes de la poción deben quedar 100 de oro.");
+
+        servicio.usarPocion(aventurero, Reglas.TAMANO_POCION);
+        assertEquals(64, aventurero.getVida(),
+                "La poción debe curar 30 y dejar 64 de vida.");
+        assertEquals(80, aventurero.getOro(),
+                "La poción debe costar 20 de oro.");
+
+        avanzar(idAventurero);
+        pelear(idAventurero, "Jefe Dragón", TipoAtaque.FISICO);
+
+        Aventurero finalizado = servicio.obtenerEstadoAventurero(idAventurero);
+        assertTrue(finalizado.estaVivo(),
+                "La línea física con poción debe terminar en victoria.");
+        assertEquals(19, finalizado.getVida(),
+                "La victoria con una poción debe terminar con 19 de vida.");
+        assertEquals(130, finalizado.getOro(),
+                "La victoria con una poción debe terminar con 130 de oro.");
+    }
+
+    @Test
+    void soloMagiaTerminaEnDerrota() throws Exception {
+        int idAventurero = sembrarEscenario();
+
+        jugar(idAventurero, TipoAtaque.MAGICO, TipoAtaque.MAGICO);
+
+        Aventurero aventurero = servicio.obtenerEstadoAventurero(idAventurero);
+        assertTrue(aventurero.estaDerrotado(),
                 "Atacar siempre con magia debe terminar en derrota.");
     }
 
     @Test
-    void physicalOnlyLineEndsDefeated() throws Exception {
-        int adventurerId = seedScenario();
+    void soloFisicoTerminaEnDerrota() throws Exception {
+        int idAventurero = sembrarEscenario();
 
-        playGame(adventurerId, TipoAtaque.FISICO, TipoAtaque.FISICO);
+        jugar(idAventurero, TipoAtaque.FISICO, TipoAtaque.FISICO);
 
-        Aventurero adventurer = service.obtenerEstadoAventurero(adventurerId);
-        assertTrue(adventurer.estaDerrotado(),
+        Aventurero aventurero = servicio.obtenerEstadoAventurero(idAventurero);
+        assertTrue(aventurero.estaDerrotado(),
                 "Atacar siempre con el puño debe terminar en derrota.");
     }
 
-    private int seedScenario() throws JuegoException {
-        List<Criatura> scenario = new ArrayList<>();
-        scenario.add(new Esqueleto(
+    private int sembrarEscenario() throws JuegoException {
+        List<Criatura> escenario = new ArrayList<>();
+        escenario.add(new Esqueleto(
                 0, "Esqueleto Oxidado", 25, 25, 2, Reglas.DANIO_ESQUELETO, 1, false,
                 Reglas.RESISTENCIA_ESQUELETO));
-        scenario.add(new Fantasma(
+        escenario.add(new Fantasma(
                 0, "Fantasma del Pasillo", 30, 30, 3, Reglas.DANIO_FANTASMA, 1, false, true));
-        scenario.add(new Orco(
+        escenario.add(new Orco(
                 0, "Orco Guardian", 40, 40, 5, Reglas.DANIO_ORCO, 2, false,
                 Reglas.RESISTENCIA_MAGICA_ORCO));
-        scenario.add(new DragonJefe(
+        escenario.add(new DragonJefe(
                 0, "Jefe Dragón", 60, 60, 10, Reglas.DANIO_DRAGON, 3, false, 1,
                 Reglas.FASES_DRAGON, false));
-        return service.iniciarNuevaPartida(
-                "Aventurero", Reglas.VIDA_INICIAL, Reglas.ATAQUE_INICIAL, scenario);
+        return servicio.iniciarNuevaPartida(
+                "Aventurero", Reglas.VIDA_INICIAL, Reglas.ATAQUE_INICIAL, escenario);
     }
 
-    private void playGame(int adventurerId, TipoAtaque firstFloorType, TipoAtaque laterFloorType)
+    private void jugar(int idAventurero, TipoAtaque tipoPrimerPiso, TipoAtaque tipoPisosSiguientes)
             throws JuegoException {
         while (true) {
-            Aventurero adventurer = service.obtenerEstadoAventurero(adventurerId);
-            if (adventurer.estaDerrotado()) {
+            Aventurero aventurero = servicio.obtenerEstadoAventurero(idAventurero);
+            if (aventurero.estaDerrotado()) {
                 return;
             }
 
-            List<Criatura> living = new ArrayList<>();
-            for (Criatura creature : service.listarCriaturasPorPiso(adventurer.getPisoActual())) {
-                if (creature.estaViva()) {
-                    living.add(creature);
+            List<Criatura> vivas = new ArrayList<>();
+            for (Criatura criatura : servicio.listarCriaturasPorPiso(aventurero.getPisoActual())) {
+                if (criatura.estaViva()) {
+                    vivas.add(criatura);
                 }
             }
 
-            if (living.isEmpty()) {
-                if (adventurer.getPisoActual() >= Reglas.PISO_FINAL) {
+            if (vivas.isEmpty()) {
+                if (aventurero.getPisoActual() >= Reglas.PISO_FINAL) {
                     return;
                 }
-                service.avanzarPiso(adventurer);
+                servicio.avanzarPiso(aventurero);
                 continue;
             }
 
-            TipoAtaque type = adventurer.getPisoActual() == Reglas.PISO_INICIAL
-                    ? firstFloorType
-                    : laterFloorType;
-            service.resolverTurno(adventurer, living.get(0), type);
+            TipoAtaque tipo = aventurero.getPisoActual() == Reglas.PISO_INICIAL
+                    ? tipoPrimerPiso
+                    : tipoPisosSiguientes;
+            servicio.resolverTurno(aventurero, vivas.get(0), tipo);
         }
+    }
+
+    private void pelear(int idAventurero, String nombreCriatura, TipoAtaque tipo)
+            throws JuegoException {
+        while (true) {
+            Aventurero aventurero = servicio.obtenerEstadoAventurero(idAventurero);
+            if (aventurero.estaDerrotado()) {
+                return;
+            }
+            Criatura criatura = buscarViva(idAventurero, nombreCriatura);
+            if (criatura == null) {
+                return;
+            }
+            servicio.resolverTurno(aventurero, criatura, tipo);
+        }
+    }
+
+    private Criatura buscarViva(int idAventurero, String nombreCriatura) throws JuegoException {
+        Aventurero aventurero = servicio.obtenerEstadoAventurero(idAventurero);
+        for (Criatura criatura : servicio.listarCriaturasPorPiso(aventurero.getPisoActual())) {
+            if (criatura.estaViva() && criatura.getNombre().equals(nombreCriatura)) {
+                return criatura;
+            }
+        }
+        return null;
+    }
+
+    private void avanzar(int idAventurero) throws JuegoException {
+        Aventurero aventurero = servicio.obtenerEstadoAventurero(idAventurero);
+        servicio.avanzarPiso(aventurero);
     }
 }

@@ -10,6 +10,7 @@ import com.mazmorra.model.Fantasma;
 import com.mazmorra.model.Orco;
 import com.mazmorra.model.TipoAtaque;
 import com.mazmorra.service.JuegoService;
+import com.mazmorra.service.ResultadoPocion;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -183,17 +184,13 @@ public final class JuegoConsola {
                                 + (vidaAntes - aventurero.getVida()) + " de vida)");
                     }
                     case 4 -> {
-                        int vidaAntes = aventurero.getVida();
-                        int oroAntes = aventurero.getOro();
-                        int curado = Math.min(Reglas.TAMANO_POCION,
-                                aventurero.getVidaMaxima() - aventurero.getVida());
-                        Criatura enemigo = servicio.usarPocion(aventurero, Reglas.TAMANO_POCION);
+                        ResultadoPocion resultado = servicio.usarPocion(aventurero, Reglas.TAMANO_POCION);
                         System.out.println("Poción: vida " + aventurero.getVida()
                                 + "/" + aventurero.getVidaMaxima() + ". (curó "
-                                + curado + " por " + (oroAntes - aventurero.getOro()) + " de oro)");
-                        if (enemigo != null) {
-                            System.out.println(enemigo.getNombre() + " aprovecha: recibiste "
-                                    + (vidaAntes + curado - aventurero.getVida()) + " de daño.");
+                                + resultado.vidaCurada() + " por " + resultado.oroPagado() + " de oro)");
+                        if (resultado.enemigo() != null) {
+                            System.out.println(resultado.enemigo().getNombre() + " aprovecha: recibiste "
+                                    + resultado.danioRecibido() + " de daño.");
                         }
                     }
                     case 5 -> {

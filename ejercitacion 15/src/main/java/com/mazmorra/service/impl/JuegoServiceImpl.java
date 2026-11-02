@@ -22,6 +22,7 @@ import com.mazmorra.model.Criatura;
 import com.mazmorra.model.Danable;
 import com.mazmorra.model.TipoAtaque;
 import com.mazmorra.service.JuegoService;
+import com.mazmorra.service.ResultadoPocion;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -223,7 +224,7 @@ public class JuegoServiceImpl implements JuegoService {
     }
 
     @Override
-    public Criatura usarPocion(Aventurero aventurero, int cantidad)
+    public ResultadoPocion usarPocion(Aventurero aventurero, int cantidad)
             throws VidaCompletaException, AventureroDerrotadoException,
             OroInsuficienteException, PersistenciaException {
         if (aventurero == null) {
@@ -260,10 +261,13 @@ public class JuegoServiceImpl implements JuegoService {
                             "Sin filas actualizadas para aventurero id " + aventurero.getId());
                 }
                 Criatura enemigo = buscarEnemigoDelPiso(aventurero, criaturas);
+                int danioRecibido = 0;
                 if (enemigo != null) {
+                    int vidaAntesDelGolpe = aventurero.getVida();
                     aplicarTurnoEnemigo(aventurero, enemigo, aventureros);
+                    danioRecibido = vidaAntesDelGolpe - aventurero.getVida();
                 }
-                return enemigo;
+                return new ResultadoPocion(curado, costo, enemigo, danioRecibido);
             });
         } catch (JuegoException e) {
             return relanzarPocion(e);
@@ -440,7 +444,7 @@ public class JuegoServiceImpl implements JuegoService {
         throw new PersistenciaException(e.getMessage(), e);
     }
 
-    private static Criatura relanzarPocion(JuegoException e)
+    private static ResultadoPocion relanzarPocion(JuegoException e)
             throws VidaCompletaException, AventureroDerrotadoException,
             OroInsuficienteException, PersistenciaException {
         if (e instanceof VidaCompletaException ex) {

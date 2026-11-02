@@ -48,8 +48,8 @@ public interface JuegoService {
             throws HuidaProhibidaException, AventureroDerrotadoException,
             PersistenciaException;
 
-    // Devuelve la criatura que contraatacó, o null si no había ninguna viva en el piso.
-    Criatura usarPocion(Aventurero aventurero, int cantidad)
+    // Devuelve el resultado de la poción y la criatura que respondió, si había alguna.
+    ResultadoPocion usarPocion(Aventurero aventurero, int cantidad)
             throws VidaCompletaException, AventureroDerrotadoException,
             OroInsuficienteException, PersistenciaException;
 

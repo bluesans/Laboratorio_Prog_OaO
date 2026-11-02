@@ -31,6 +31,9 @@ public final class TransaccionMySQL implements Transaccion {
                 } catch (SQLException rollbackError) {
                     e.addSuppressed(rollbackError);
                 }
+                if (e instanceof Error err) {
+                    throw err;
+                }
                 if (e instanceof JuegoException juegoException) {
                     throw juegoException;
                 }

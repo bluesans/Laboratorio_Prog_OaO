@@ -13,7 +13,7 @@ import java.util.Optional;
 /**
  * Implementación en memoria del DAO de aventureros para las pruebas.
  */
-class InMemoryAventureroDAO implements AventureroDAO {
+class AventureroDAOEnMemoria implements AventureroDAO {
 
     private final Map<Integer, Aventurero> aventureros = new LinkedHashMap<>();
     private int siguienteId = 1;

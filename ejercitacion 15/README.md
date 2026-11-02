@@ -1,8 +1,8 @@
 # Mazmorra
 
-Juego de mazmorra por turnos en Java.
+Armé este juego por turnos en Java para practicar el paso de datos entre capas. La idea es simple: un aventurero entra a una mazmorra de tres pisos, pelea contra cuatro criaturas y administra vida y oro.
 
-Capas: `model` → `dao` (interfaces + implementación MySQL) → `service` → `Main`.
+Lo dividí en capas: `model` → `dao` (interfaces + implementación MySQL) → `service` → `Main`.
 
 ## Requisitos
 
@@ -50,7 +50,7 @@ Maven descarga solo. JUnit 5 está disponible como dependencia de pruebas.
    mvn exec:java
    ```
 
-   Las pruebas (JUnit 5) se ejecutan con `mvn test`.
+   Las pruebas (JUnit 5) se ejecutan con `mvn test`. Las pruebas de integración se saltan si no defines `DB_URL`; con esa variable definida corren contra MySQL.
 
    En Windows, si los acentos se ven mal en la consola, ejecutar antes
    `chcp 65001` para que use UTF-8.

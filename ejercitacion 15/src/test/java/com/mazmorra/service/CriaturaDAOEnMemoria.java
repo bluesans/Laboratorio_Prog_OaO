@@ -13,7 +13,7 @@ import java.util.Optional;
 /**
  * Implementación en memoria del DAO de criaturas para las pruebas.
  */
-class InMemoryCriaturaDAO implements CriaturaDAO {
+class CriaturaDAOEnMemoria implements CriaturaDAO {
 
     private final Map<Integer, Criatura> criaturas = new LinkedHashMap<>();
     private int siguienteId = 1;
