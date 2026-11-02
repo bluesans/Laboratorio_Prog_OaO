@@ -2,7 +2,7 @@
 
 Juego de mazmorra por turnos en Java.
 
-Dividido en capas: `model` → `dao` (interfaces + implementación MySQL) → `service` → `Main`.
+Dividido en capas: model → dao (interfaces + implementación MySQL) → service → Main.
 
 ## Requisitos
 
@@ -56,6 +56,10 @@ Maven descarga solo. JUnit 5 está disponible como dependencia de pruebas.
    `chcp 65001` para que use UTF-8.
 
 ## Cómo se juega
+
+El proyecto arranca en el menú interactivo. Para correr la partida guionada
+que muestra las reglas y las excepciones del juego, poner la variable
+`modoDemo` de `Main` en `true`.
 
 El menú principal tiene tres opciones: nueva partida, reglas del juego y salir.
 La segunda muestra en pantalla el objetivo, el mapa de los tres pisos, las
