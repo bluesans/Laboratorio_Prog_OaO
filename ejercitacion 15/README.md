@@ -13,7 +13,7 @@ Dividido en capas: model → dao (interfaces + implementación MySQL) → servic
 | MySQL / MariaDB | 8.x / 10.4 |
 
 La única dependencia de ejecución es `com.mysql:mysql-connector-j:8.3.0`, que
-Maven descarga solo. JUnit 5 está disponible como dependencia de pruebas.
+Maven descarga solo.
 
 ## Puesta en marcha
 
@@ -52,8 +52,6 @@ Maven descarga solo. JUnit 5 está disponible como dependencia de pruebas.
 
    Sin argumentos corre la demo guionada; para abrir el menú interactivo,
    ejecutar `mvn exec:java -Dexec.args=--consola`.
-
-   Las pruebas (JUnit 5) se ejecutan con `mvn test`. Las pruebas de integración se saltan si no defines `DB_URL`; con esa variable definida corren contra MySQL.
 
    En Windows, si los acentos se ven mal en la consola, ejecutar antes
    `chcp 65001` para que use UTF-8.
