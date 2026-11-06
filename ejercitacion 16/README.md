@@ -1,5 +1,6 @@
 # Mazmorra
-**Integrantes:** Santiago Molina
+**Integrantes:** Santiago Molina.
+
 Juego de mazmorra por turnos con sprites, hecho en Java.
 
 Dividido en capas: model → dao (interfaces + implementación MySQL) → service → ui (Swing).
