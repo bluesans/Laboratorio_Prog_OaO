@@ -210,7 +210,6 @@ src/main/java/com/mazmorra/
 ├── Reglas.java           constantes con los valores del juego
 ├── ui/                   VentanaJuego, PanelJuego, PanelAdministracion,
 │                         ModeloTablaCriaturas, Sprites, DialogosError
-├── consola/              MainConsola, JuegoConsola, DemoGuionada (referencia)
 ├── db/                   Conexion, Transaccion
 ├── db/impl/              TransaccionMySQL
 ├── model/        Danable, TipoAtaque, TipoCriatura, Criatura, Esqueleto,
