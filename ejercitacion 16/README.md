@@ -63,9 +63,9 @@ como dependencia de pruebas.
 |---|---|
 | ![Pantalla de inicio](docs/inicio.png) | ![Partida en curso](docs/encurso.png) |
 
-| Combate | Error | Panel De administracion |
-|---|---|---|
-| ![Combate](docs/combate.png) | ![Error](docs/excepcion.png) | ![Panel De administracion](docs/administracion.png) |
+| Combate | Error | Panel De administracion | Criatura registrada exitosamente | Resultado de la tabla despues de registrar la criatura |
+|---|---|---|---|---|
+| ![Combate](docs/combate.png) | ![Error](docs/excepcion.png) | ![Panel De administracion](docs/administracion.png) | ![Registrada](docs/criaturaregistrada.png) | ![Resultado](docs/resultado.png) |
 
 ## Cómo se juega
 
