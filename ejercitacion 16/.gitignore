@@ -9,3 +9,10 @@ db.properties
 !.vscode/launch.json
 .DS_Store
 *.log
+
+# WakaTime
+.wakatime-project
+.wakatime/
+*.wakatime
+.wakatime.cfg
+.wakatime.bdb
