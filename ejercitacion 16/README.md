@@ -1,5 +1,5 @@
 # Mazmorra
-**Integrantes:** Santiago Molina.
+**Integrantes:** Santiago Molina
 
 Juego de mazmorra por turnos con sprites, hecho en Java.
 
