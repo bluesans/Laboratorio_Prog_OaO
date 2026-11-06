@@ -1,5 +1,5 @@
 # Mazmorra
-
+**Integrantes:** Santiago Molina
 Juego de mazmorra por turnos en Java.
 
 Dividido en capas: model → dao (interfaces + implementación MySQL) → service → Main.
@@ -50,6 +50,9 @@ Maven descarga solo. JUnit 5 está disponible como dependencia de pruebas.
    mvn exec:java
    ```
 
+   Sin argumentos corre la demo guionada; para abrir el menú interactivo,
+   ejecutar `mvn exec:java -Dexec.args=--consola`.
+
    Las pruebas (JUnit 5) se ejecutan con `mvn test`. Las pruebas de integración se saltan si no defines `DB_URL`; con esa variable definida corren contra MySQL.
 
    En Windows, si los acentos se ven mal en la consola, ejecutar antes
@@ -57,9 +60,9 @@ Maven descarga solo. JUnit 5 está disponible como dependencia de pruebas.
 
 ## Cómo se juega
 
-El proyecto arranca en el menú interactivo. Para correr la partida guionada
-que muestra las reglas y las excepciones del juego, poner la variable
-`modoDemo` de `Main` en `true`.
+El proyecto arranca en la demo guionada: recorre el flujo completo y fuerza
+las excepciones del juego. Para jugar en el menú interactivo, ejecutar
+`mvn exec:java -Dexec.args=--consola`.
 
 Ojo: la demo **limpia la base de datos**. Al arrancar llama a
 `iniciarNuevaPartida`, que borra todos los aventureros y las criaturas, y deja
@@ -146,6 +149,12 @@ porque criaturas y aventureros viven en tablas distintas.
 | No se toma poción con la vida al máximo | `VidaCompletaException` |
 | La poción se paga antes de curar | `OroInsuficienteException` |
 | Un aventurero derrotado no puede actuar | `AventureroDerrotadoException` |
+| El nombre (≤50) y el piso deben ser válidos | `DatosCriaturaInvalidosException` |
+| No se repite el nombre en el piso ni hay dos Jefes Dragón | `CriaturaDuplicadaException` |
+
+El modelo valida la forma de la criatura (nombre no vacío, vida coherente); el
+Service valida las reglas de negocio (piso, nombre de hasta 50 caracteres,
+Jefe Dragón único y en el piso final, nombres repetidos).
 
 Todas heredan de `JuegoException`, y `PersistenciaException` envuelve los errores
 de JDBC para que la capa de negocio no dependa de `SQLException`. Una recompensa
@@ -169,11 +178,21 @@ recompensa. El DAO reconstruye la subclase correcta
 al leer (`switch` sobre el enum `TipoCriatura`), y así el modelo queda polimórfico
 aunque la base sea relacional y plana.
 
+## Cambios respecto del guion
+
+- `FuerzaAtaque` del Orco pasó a `DanioAtaque` en todas las criaturas.
+- El Orco tiene `ResistenciaMagica`.
+- Se agregaron las columnas `Evadida` y `RecompensaPagada`.
+- Se agregaron `CriaturaEvadidaException` y `OroInsuficienteException`.
+- `resolverTurno` e `iniciarNuevaPartida` reemplazan a `contraatacarSiCorresponde` y al armado manual de la partida.
+- `resolverAtaque` recibe además `TipoAtaque`.
+- El servicio agrega `actualizarCriatura`, `resolverAtaqueEnemigo` y `esVictoria`.
+
 ## Estructura del proyecto
 
 ```
 src/main/java/com/mazmorra/
-├── Main.java             punto de entrada
+├── Main.java             punto de entrada (demo por defecto, --consola para el menú)
 ├── JuegoConsola.java     menú, combate por turnos y lectura de entrada
 ├── Reglas.java           constantes con los valores del juego
 ├── db/                   Conexion, Transaccion
@@ -182,9 +201,9 @@ src/main/java/com/mazmorra/
 │                 Fantasma, Orco, DragonJefe, Aventurero
 ├── dao/          CriaturaDAO, AventureroDAO
 ├── dao/impl/     CriaturaDAOMySQL, AventureroDAOMySQL
-├── service/      JuegoService
+├── service/      JuegoService, ResultadoPocion
 ├── service/impl/ JuegoServiceImpl
-└── exception/    JuegoException, PersistenciaException y las 8 reglas
+└── exception/    JuegoException, PersistenciaException y las 10 reglas
 sql/schema.sql
 db.properties.example
 ```

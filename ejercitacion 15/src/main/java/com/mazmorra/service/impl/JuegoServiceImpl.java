@@ -3,15 +3,14 @@ package com.mazmorra.service.impl;
 import com.mazmorra.Reglas;
 import com.mazmorra.dao.AventureroDAO;
 import com.mazmorra.dao.CriaturaDAO;
-import com.mazmorra.dao.impl.AventureroDAOMySQL;
-import com.mazmorra.dao.impl.CriaturaDAOMySQL;
 import com.mazmorra.db.Transaccion;
-import com.mazmorra.db.impl.TransaccionMySQL;
 import com.mazmorra.exception.AventureroDerrotadoException;
+import com.mazmorra.exception.CriaturaDuplicadaException;
 import com.mazmorra.exception.CriaturaEvadidaException;
 import com.mazmorra.exception.CriaturaYaDerrotadaException;
 import com.mazmorra.exception.CriaturasPendientesException;
 import com.mazmorra.exception.DanioInvalidoException;
+import com.mazmorra.exception.DatosCriaturaInvalidosException;
 import com.mazmorra.exception.HuidaProhibidaException;
 import com.mazmorra.exception.JuegoException;
 import com.mazmorra.exception.OroInsuficienteException;
@@ -21,6 +20,7 @@ import com.mazmorra.model.Aventurero;
 import com.mazmorra.model.Criatura;
 import com.mazmorra.model.Danable;
 import com.mazmorra.model.TipoAtaque;
+import com.mazmorra.model.TipoCriatura;
 import com.mazmorra.service.JuegoService;
 import com.mazmorra.service.ResultadoPocion;
 
@@ -33,10 +33,6 @@ public class JuegoServiceImpl implements JuegoService {
     private final CriaturaDAO criaturaDAO;
     private final AventureroDAO aventureroDAO;
     private final Transaccion transaccion;
-
-    public JuegoServiceImpl() {
-        this(new CriaturaDAOMySQL(), new AventureroDAOMySQL(), new TransaccionMySQL());
-    }
 
     public JuegoServiceImpl(CriaturaDAO criaturaDAO, AventureroDAO aventureroDAO, Transaccion transaccion) {
         this.criaturaDAO = Objects.requireNonNull(
@@ -69,13 +65,114 @@ public class JuegoServiceImpl implements JuegoService {
     }
 
     @Override
-    public Criatura registrarCriatura(Criatura criatura) throws PersistenciaException {
+    public Criatura registrarCriatura(Criatura criatura)
+            throws DatosCriaturaInvalidosException, CriaturaDuplicadaException,
+            PersistenciaException {
         if (criatura == null) {
             throw new IllegalArgumentException("La criatura a registrar no puede ser nula.");
         }
+        validarCriatura(criatura, -1, criaturaDAO.listarTodas());
         int id = criaturaDAO.insertar(criatura);
         criatura.setId(id);
         return criatura;
+    }
+
+    @Override
+    public void actualizarCriatura(Criatura criatura)
+            throws DatosCriaturaInvalidosException, CriaturaDuplicadaException,
+            PersistenciaException {
+        if (criatura == null) {
+            throw new IllegalArgumentException("La criatura a actualizar no puede ser nula.");
+        }
+        if (criatura.getId() <= 0) {
+            throw new IllegalArgumentException("La criatura debe tener un id válido.");
+        }
+        validarCriatura(criatura, criatura.getId(), criaturaDAO.listarTodas());
+        if (!criaturaDAO.actualizar(criatura)) {
+            throw new PersistenciaException(
+                    "No existe la criatura con id " + criatura.getId() + ".");
+        }
+    }
+
+    private void validarCriatura(Criatura criatura, int idExcluido, List<Criatura> existentes)
+            throws DatosCriaturaInvalidosException, CriaturaDuplicadaException {
+        String nombre = criatura.getNombre();
+        if (nombre.length() > 50) {
+            throw new DatosCriaturaInvalidosException(
+                    "El nombre no puede superar los 50 caracteres.");
+        }
+        int piso = criatura.getPisoMazmorra();
+        if (piso < Reglas.PISO_INICIAL || piso > Reglas.PISO_FINAL) {
+            throw new DatosCriaturaInvalidosException(
+                    "El piso debe estar entre " + Reglas.PISO_INICIAL + " y "
+                    + Reglas.PISO_FINAL + ".");
+        }
+
+        boolean esDragon = criatura.getTipo() == TipoCriatura.DRAGON_JEFE;
+        if (esDragon && piso != Reglas.PISO_FINAL) {
+            throw new DatosCriaturaInvalidosException(
+                    "El Jefe Dragón solo puede estar en el piso " + Reglas.PISO_FINAL + ".");
+        }
+
+        for (Criatura otra : existentes) {
+            if (otra.getId() == idExcluido) {
+                continue;
+            }
+            if (esDragon && otra.getTipo() == TipoCriatura.DRAGON_JEFE) {
+                throw new CriaturaDuplicadaException("Ya existe un Jefe Dragón en la mazmorra.");
+            }
+            if (otra.getPisoMazmorra() == piso && otra.getNombre().equalsIgnoreCase(nombre)) {
+                throw new CriaturaDuplicadaException("Ya hay una criatura llamada " + nombre
+                        + " en el piso " + piso + ".");
+            }
+        }
+    }
+
+    @Override
+    public List<Aventurero> listarAventureros() throws PersistenciaException {
+        return aventureroDAO.listarTodos();
+    }
+
+    @Override
+    public int resolverAtaqueEnemigo(Aventurero aventurero, Criatura criatura)
+            throws AventureroDerrotadoException, PersistenciaException {
+        if (aventurero == null || criatura == null) {
+            throw new IllegalArgumentException("El aventurero y la criatura no pueden ser nulos.");
+        }
+        if (aventurero.estaDerrotado()) {
+            throw new AventureroDerrotadoException(
+                    "El aventurero está derrotado y no puede recibir otro ataque.");
+        }
+        if (!criatura.estaViva()) {
+            return 0;
+        }
+        int vidaAntes = aventurero.getVida();
+        aventurero.recibirDanio(criatura.getDanioAtaque());
+        if (!aventureroDAO.actualizar(aventurero)) {
+            throw new PersistenciaException(
+                    "Sin filas actualizadas para aventurero id " + aventurero.getId());
+        }
+        return vidaAntes - aventurero.getVida();
+    }
+
+    @Override
+    public boolean esVictoria(int idAventurero) throws PersistenciaException {
+        Aventurero aventurero = aventureroDAO.buscarPorId(idAventurero)
+                .orElseThrow(() -> new PersistenciaException(
+                        "No existe un aventurero con id " + idAventurero));
+        if (aventurero.getPisoActual() < Reglas.PISO_FINAL) {
+            return false;
+        }
+        boolean hayDragon = false;
+        for (Criatura criatura : criaturaDAO.listarPorPiso(Reglas.PISO_FINAL)) {
+            if (criatura.getTipo() == TipoCriatura.DRAGON_JEFE) {
+                hayDragon = true;
+                if (!criatura.estaDerrotado()) {
+                    return false;
+                }
+            }
+        }
+        return hayDragon;
     }
 
     @Override
@@ -89,6 +186,14 @@ public class JuegoServiceImpl implements JuegoService {
     @Override
     public List<Criatura> listarCriaturas() throws PersistenciaException {
         return criaturaDAO.listarTodas();
+    }
+
+    @Override
+    public void eliminarCriatura(int id) throws PersistenciaException {
+        if (criaturaDAO.buscarPorId(id).isEmpty()) {
+            throw new PersistenciaException("No existe la criatura con id " + id + ".");
+        }
+        criaturaDAO.eliminar(id);
     }
 
     @Override
@@ -113,6 +218,10 @@ public class JuegoServiceImpl implements JuegoService {
             PersistenciaException {
         if (aventurero == null || criatura == null) {
             throw new IllegalArgumentException("El aventurero y la criatura no pueden ser nulos.");
+        }
+        if (aventurero.estaDerrotado()) {
+            throw new AventureroDerrotadoException(
+                    "El aventurero está derrotado y no puede atacar: " + aventurero.getNombre());
         }
         // Validación y normalización antes de abrir la transacción.
         TipoAtaque tipo = tipoAtaque == null ? TipoAtaque.FISICO : tipoAtaque;
@@ -227,6 +336,20 @@ public class JuegoServiceImpl implements JuegoService {
     public ResultadoPocion usarPocion(Aventurero aventurero, int cantidad)
             throws VidaCompletaException, AventureroDerrotadoException,
             OroInsuficienteException, PersistenciaException {
+        return usarPocion(aventurero, cantidad, null, true);
+    }
+
+    @Override
+    public ResultadoPocion usarPocion(Aventurero aventurero, int cantidad, Criatura enemigo)
+            throws VidaCompletaException, AventureroDerrotadoException,
+            OroInsuficienteException, PersistenciaException {
+        return usarPocion(aventurero, cantidad, enemigo, false);
+    }
+
+    private ResultadoPocion usarPocion(Aventurero aventurero, int cantidad, Criatura enemigo,
+            boolean elegirEnemigo)
+            throws VidaCompletaException, AventureroDerrotadoException,
+            OroInsuficienteException, PersistenciaException {
         if (aventurero == null) {
             throw new IllegalArgumentException("El aventurero no puede ser nulo.");
         }
@@ -260,14 +383,16 @@ public class JuegoServiceImpl implements JuegoService {
                     throw new PersistenciaException(
                             "Sin filas actualizadas para aventurero id " + aventurero.getId());
                 }
-                Criatura enemigo = buscarEnemigoDelPiso(aventurero, criaturas);
+                Criatura atacante = elegirEnemigo
+                        ? buscarEnemigoDelPiso(aventurero, criaturas)
+                        : enemigo;
                 int danioRecibido = 0;
-                if (enemigo != null) {
+                if (atacante != null && !atacante.estaDerrotado()) {
                     int vidaAntesDelGolpe = aventurero.getVida();
-                    aplicarTurnoEnemigo(aventurero, enemigo, aventureros);
+                    aplicarTurnoEnemigo(aventurero, atacante, aventureros);
                     danioRecibido = vidaAntesDelGolpe - aventurero.getVida();
                 }
-                return new ResultadoPocion(curado, costo, enemigo, danioRecibido);
+                return new ResultadoPocion(curado, costo, atacante, danioRecibido);
             });
         } catch (JuegoException e) {
             return relanzarPocion(e);
