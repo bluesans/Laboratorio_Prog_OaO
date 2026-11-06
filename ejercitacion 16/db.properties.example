@@ -1,0 +1,7 @@
+# Plantilla de configuracion de base de datos.
+# Copiar este archivo como "db.properties" (ignorado por git) y completar los datos reales.
+# Alternativamente, se pueden sobrescribir los valores con las variables de entorno
+# DB_URL, DB_USUARIO y DB_PASSWORD (tienen prioridad sobre el archivo).
+db.url=jdbc:mysql://localhost:3306/mazmorra?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+db.usuario=mazmorra_app
+db.password=CAMBIAR_ESTA_CLAVE

@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Mazmorra",
+            "request": "launch",
+            "mainClass": "com.mazmorra.Main",
+            "projectName": "mazmorra",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        }
+    ]
+}
