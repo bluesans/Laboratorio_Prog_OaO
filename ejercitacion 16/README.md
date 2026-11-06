@@ -15,8 +15,7 @@ Dividido en capas: model → dao (interfaces + implementación MySQL) → servic
 | MySQL / MariaDB | 8.x / 10.4 |
 
 Las dependencias de ejecución son `com.mysql:mysql-connector-j:8.3.0` y
-`com.formdev:flatlaf:3.4.1`, que Maven descarga solo. JUnit 5 está disponible
-como dependencia de pruebas.
+`com.formdev:flatlaf:3.4.1`, que Maven descarga solo.
 
 ## Puesta en marcha
 
@@ -53,9 +52,7 @@ como dependencia de pruebas.
    mvn exec:java
    ```
 
-   Se abre la ventana del juego. Las pruebas (JUnit 5) se ejecutan con
-   `mvn test`; las de integración se saltan si no definís `DB_URL`, y con esa
-   variable corren contra MySQL.
+   Se abre la ventana del juego.
 
 ## Capturas
 
@@ -223,7 +220,6 @@ src/main/java/com/mazmorra/
 ├── service/      JuegoService, Escenario, ResultadoPocion
 ├── service/impl/ JuegoServiceImpl
 └── exception/    JuegoException, PersistenciaException y las 10 reglas
-src/test/java/com/mazmorra/   pruebas de modelo y de servicio
 docs/                         capturas de pantalla
 sql/schema.sql
 db.properties.example
