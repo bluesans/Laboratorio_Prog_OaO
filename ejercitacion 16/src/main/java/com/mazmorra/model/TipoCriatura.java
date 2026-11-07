@@ -4,5 +4,7 @@ public enum TipoCriatura {
     ESQUELETO,
     FANTASMA,
     ORCO,
-    DRAGON_JEFE
+    DRAGON_JEFE,
+    ARANA,
+    GOLEM
 }

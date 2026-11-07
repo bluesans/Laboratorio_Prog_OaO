@@ -66,8 +66,4 @@ public class DragonJefe extends Criatura {
         this.faseActual = fase;
         this.alientoDeFuego = this.faseActual >= 2;
     }
-
-    public int getPorcentajeVida() {
-        return (int) Math.round(getVida() * 100.0 / getVidaMaxima());
-    }
 }

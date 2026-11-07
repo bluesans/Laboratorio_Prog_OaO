@@ -10,9 +10,18 @@ public class Aventurero implements Danable {
     private int ataqueBase;
     private int oro;
     private int pisoActual;
+    private int personajeId;
+    private int ronda;
+    private int enemigosDerrotados;
 
     public Aventurero(int id, String nombre, int nivel, int vida, int vidaMaxima,
             int ataqueBase, int oro, int pisoActual) {
+        this(id, nombre, nivel, vida, vidaMaxima, ataqueBase, oro, pisoActual, 0, 1, 0);
+    }
+
+    public Aventurero(int id, String nombre, int nivel, int vida, int vidaMaxima,
+            int ataqueBase, int oro, int pisoActual, int personajeId, int ronda,
+            int enemigosDerrotados) {
         if (nombre == null || nombre.isBlank()) {
             throw new IllegalArgumentException("El nombre del aventurero no puede ser nulo ni vacío.");
         }
@@ -34,6 +43,15 @@ public class Aventurero implements Danable {
         if (pisoActual < 1) {
             throw new IllegalArgumentException("El piso actual debe ser al menos 1.");
         }
+        if (personajeId < 0) {
+            throw new IllegalArgumentException("El id del personaje no puede ser negativo.");
+        }
+        if (ronda < 1) {
+            throw new IllegalArgumentException("La ronda debe ser al menos 1.");
+        }
+        if (enemigosDerrotados < 0) {
+            throw new IllegalArgumentException("Los enemigos derrotados no pueden ser negativos.");
+        }
         this.id = id;
         this.nombre = nombre;
         this.nivel = nivel;
@@ -42,6 +60,9 @@ public class Aventurero implements Danable {
         this.ataqueBase = ataqueBase;
         this.oro = oro;
         this.pisoActual = pisoActual;
+        this.personajeId = personajeId;
+        this.ronda = ronda;
+        this.enemigosDerrotados = enemigosDerrotados;
     }
 
     public int getId() {
@@ -97,6 +118,43 @@ public class Aventurero implements Danable {
         this.pisoActual = pisoActual;
     }
 
+    public int getPersonajeId() {
+        return personajeId;
+    }
+
+    public void setPersonajeId(int personajeId) {
+        if (personajeId < 0) {
+            throw new IllegalArgumentException("El id del personaje no puede ser negativo.");
+        }
+        this.personajeId = personajeId;
+    }
+
+    public int getRonda() {
+        return ronda;
+    }
+
+    public void setRonda(int ronda) {
+        if (ronda < 1) {
+            throw new IllegalArgumentException("La ronda debe ser al menos 1.");
+        }
+        this.ronda = ronda;
+    }
+
+    public int getEnemigosDerrotados() {
+        return enemigosDerrotados;
+    }
+
+    public void setEnemigosDerrotados(int enemigosDerrotados) {
+        if (enemigosDerrotados < 0) {
+            throw new IllegalArgumentException("Los enemigos derrotados no pueden ser negativos.");
+        }
+        this.enemigosDerrotados = enemigosDerrotados;
+    }
+
+    public void incrementarEnemigosDerrotados() {
+        this.enemigosDerrotados++;
+    }
+
     @Override
     public void recibirDanio(int cantidad) {
         if (cantidad <= 0) {
@@ -124,15 +182,13 @@ public class Aventurero implements Danable {
         return !estaDerrotado();
     }
 
-    public int getPorcentajeVida() {
-        return (int) Math.round(vida * 100.0 / vidaMaxima);
-    }
-
     @Override
     public String toString() {
         return String.format(
-                "%s[id=%d, nombre=%s, nivel=%d, vida=%d/%d, ataque=%d, oro=%d, piso=%d, derrotado=%b]",
+                "%s[id=%d, nombre=%s, nivel=%d, vida=%d/%d, ataque=%d, oro=%d, piso=%d, "
+                + "personajeId=%d, ronda=%d, enemigosDerrotados=%d, derrotado=%b]",
                 getClass().getSimpleName(), id, nombre, nivel, vida, vidaMaxima,
-                ataqueBase, oro, pisoActual, estaDerrotado());
+                ataqueBase, oro, pisoActual, personajeId, ronda, enemigosDerrotados,
+                estaDerrotado());
     }
 }

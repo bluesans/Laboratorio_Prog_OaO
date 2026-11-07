@@ -2,8 +2,12 @@ package com.mazmorra.db.impl;
 
 import com.mazmorra.dao.AventureroDAO;
 import com.mazmorra.dao.CriaturaDAO;
+import com.mazmorra.dao.PartidaDAO;
+import com.mazmorra.dao.PersonajeDAO;
 import com.mazmorra.dao.impl.AventureroDAOMySQL;
 import com.mazmorra.dao.impl.CriaturaDAOMySQL;
+import com.mazmorra.dao.impl.PartidaDAOMySQL;
+import com.mazmorra.dao.impl.PersonajeDAOMySQL;
 import com.mazmorra.db.Conexion;
 import com.mazmorra.db.Transaccion;
 import com.mazmorra.exception.JuegoException;
@@ -21,8 +25,10 @@ public final class TransaccionMySQL implements Transaccion {
             cn.setAutoCommit(false);
             CriaturaDAO criaturas = new CriaturaDAOMySQL(cn);
             AventureroDAO aventureros = new AventureroDAOMySQL(cn);
+            PersonajeDAO personajes = new PersonajeDAOMySQL(cn);
+            PartidaDAO partidas = new PartidaDAOMySQL(cn);
             try {
-                T resultado = trabajo.ejecutar(criaturas, aventureros);
+                T resultado = trabajo.ejecutar(criaturas, aventureros, personajes, partidas);
                 cn.commit();
                 return resultado;
             } catch (Throwable e) {

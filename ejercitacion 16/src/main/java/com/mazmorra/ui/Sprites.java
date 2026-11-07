@@ -24,6 +24,12 @@ final class Sprites {
     static final Color DRAGON_VIENTRE = new Color(0xE0A060);
     static final Color LLAMA = new Color(0xE67E22);
     static final Color LLAMA_CLARA = new Color(0xF5C542);
+    static final Color ARANA = new Color(0x8E5AA8);
+    static final Color ARANA_OSCURO = new Color(0x5B2E73);
+    static final Color ARANA_CLARO = new Color(0xC08AD6);
+    static final Color GOLEM = new Color(0x8A8F98);
+    static final Color GOLEM_OSCURO = new Color(0x555A63);
+    static final Color GOLEM_CLARO = new Color(0xB9BEC6);
 
     private Sprites() {
         throw new UnsupportedOperationException("Clase de utilidad: no se instancia.");
@@ -115,6 +121,51 @@ final class Sprites {
         bloque(g, CUERO, 13, 7, 2, 2, escala, ox, oy);
         bloque(g, CUERO, 13, 9, 2, 5, escala, ox, oy);
         bloque(g, new Color(0x8E9AA0), 13, 6, 2, 1, escala, ox, oy);
+    }
+
+    static void arana(Graphics2D g, int ox, int oy, int escala) {
+        sombra(g, ox, oy, escala);
+        bloque(g, ARANA_OSCURO, 1, 6, 3, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 1, 8, 2, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 2, 4, 2, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 2, 9, 3, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 2, 11, 2, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 4, 13, 1, 2, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 12, 6, 3, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 13, 8, 2, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 12, 4, 2, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 11, 9, 3, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 12, 11, 2, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 11, 13, 1, 2, escala, ox, oy);
+        bloque(g, ARANA, 5, 7, 6, 6, escala, ox, oy);
+        bloque(g, ARANA_CLARO, 6, 8, 2, 3, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 6, 11, 4, 1, escala, ox, oy);
+        bloque(g, ARANA_OSCURO, 6, 5, 4, 3, escala, ox, oy);
+        bloque(g, ARANA_CLARO, 7, 5, 2, 1, escala, ox, oy);
+        bloque(g, new Color(0xF2C230), 6, 6, 1, 1, escala, ox, oy);
+        bloque(g, new Color(0xF2C230), 9, 6, 1, 1, escala, ox, oy);
+        bloque(g, HUESO, 7, 8, 1, 1, escala, ox, oy);
+        bloque(g, HUESO, 9, 8, 1, 1, escala, ox, oy);
+    }
+
+    static void golem(Graphics2D g, int ox, int oy, int escala) {
+        sombra(g, ox, oy, escala);
+        bloque(g, GOLEM_OSCURO, 3, 12, 3, 4, escala, ox, oy);
+        bloque(g, GOLEM_OSCURO, 10, 12, 3, 4, escala, ox, oy);
+        bloque(g, GOLEM, 3, 5, 10, 8, escala, ox, oy);
+        bloque(g, GOLEM_CLARO, 4, 6, 8, 3, escala, ox, oy);
+        bloque(g, GOLEM_OSCURO, 4, 10, 8, 1, escala, ox, oy);
+        bloque(g, GOLEM_OSCURO, 0, 6, 3, 5, escala, ox, oy);
+        bloque(g, GOLEM_OSCURO, 13, 6, 3, 5, escala, ox, oy);
+        bloque(g, GOLEM_CLARO, 0, 10, 3, 2, escala, ox, oy);
+        bloque(g, GOLEM_CLARO, 13, 10, 3, 2, escala, ox, oy);
+        bloque(g, GOLEM_OSCURO, 7, 6, 1, 3, escala, ox, oy);
+        bloque(g, GOLEM_OSCURO, 8, 9, 2, 1, escala, ox, oy);
+        bloque(g, GOLEM_CLARO, 5, 1, 6, 4, escala, ox, oy);
+        bloque(g, GOLEM_OSCURO, 5, 4, 6, 1, escala, ox, oy);
+        bloque(g, new Color(0x7FD6A0), 6, 2, 1, 1, escala, ox, oy);
+        bloque(g, new Color(0x7FD6A0), 9, 2, 1, 1, escala, ox, oy);
+        bloque(g, CONTORNO, 7, 3, 2, 1, escala, ox, oy);
     }
 
     static void dragon(Graphics2D g, int ox, int oy, int escala) {

@@ -6,10 +6,13 @@ import com.mazmorra.exception.PersistenciaException;
 import com.mazmorra.model.Aventurero;
 import com.mazmorra.model.Criatura;
 import com.mazmorra.model.DragonJefe;
+import com.mazmorra.model.Partida;
+import com.mazmorra.model.Personaje;
 import com.mazmorra.model.TipoAtaque;
 import com.mazmorra.model.TipoCriatura;
 import com.mazmorra.service.Escenario;
 import com.mazmorra.service.JuegoService;
+import com.mazmorra.service.InicioPartida;
 import com.mazmorra.service.ResultadoPocion;
 
 import javax.swing.AbstractAction;
@@ -49,7 +52,7 @@ public final class PanelJuego extends JPanel {
     private static final int TILE = 48;
     private static final int ANCHO_TABLERO = COLUMNAS * TILE;
     private static final int ALTO_TABLERO = FILAS * TILE;
-    private static final int ALTO_HUD = 84;
+    private static final int ALTO_HUD = 100;
 
     private static final int JUGADOR_COL = 9;
     private static final int JUGADOR_FILA = 10;
@@ -70,6 +73,10 @@ public final class PanelJuego extends JPanel {
     private static final Color SANGRE = new Color(0xC0392B);
     private static final Color CURA = new Color(0x58C46A);
     private static final Color MAGIA = new Color(0x7FB2FF);
+    private static final Color[] COLORES_RONDA = {
+        new Color(0xE0B341), new Color(0x58C46A), new Color(0x7FB2FF),
+        new Color(0xC77DFF), new Color(0xE67E22), new Color(0xE85D75)
+    };
 
     private static final int[] TORCHAS_COL = {3, 14, 0, 17, 0, 17, 3, 14};
     private static final int[] TORCHAS_FILA = {0, 0, 4, 4, 8, 8, 11, 11};
@@ -81,9 +88,13 @@ public final class PanelJuego extends JPanel {
     private final List<MuerteVisual> muertes = new ArrayList<>();
     private final List<Proyectil> proyectiles = new ArrayList<>();
     private final Map<Integer, Color> tonosSuelo = new HashMap<>();
-    private final Random azar = new Random(7);
+    private final Random azar = new Random();
 
     private Aventurero aventurero;
+    private Personaje personajeActual;
+    private final List<Personaje> ranking = new ArrayList<>();
+    private int puntaje;
+    private boolean resultadoRegistrado;
     private int piso = Reglas.PISO_INICIAL;
     private int jugadorCol = JUGADOR_COL;
     private int jugadorFila = JUGADOR_FILA;
@@ -148,7 +159,13 @@ public final class PanelJuego extends JPanel {
         }
         partidaVerificada = true;
         try {
-            hayPartidaGuardada = !servicio.listarAventureros().isEmpty();
+            hayPartidaGuardada = false;
+            for (Aventurero guardado : servicio.listarAventureros()) {
+                if (guardado.getPersonajeId() > 0 && !guardado.estaDerrotado()) {
+                    hayPartidaGuardada = true;
+                    break;
+                }
+            }
         } catch (PersistenciaException e) {
             hayPartidaGuardada = false;
         }
@@ -175,8 +192,9 @@ public final class PanelJuego extends JPanel {
         atajo(KeyEvent.VK_2, "magia", this::atacarMagico);
         atajo(KeyEvent.VK_P, "pocion", this::usarPocion);
         atajo(KeyEvent.VK_H, "huir", this::huir);
-        atajo(KeyEvent.VK_R, "reiniciar", this::pedirNombreEIniciar);
+        atajo(KeyEvent.VK_R, "reiniciar", this::reiniciar);
         atajo(KeyEvent.VK_C, "continuar", this::continuarPartida);
+        atajo(KeyEvent.VK_N, "nuevo", this::nuevoDesdeFinal);
         atajo(KeyEvent.VK_ENTER, "empezar", this::empezarDesdeInicio);
     }
 
@@ -201,43 +219,68 @@ public final class PanelJuego extends JPanel {
         }
     }
 
+    private void reiniciar() {
+        if (!bloqueoVencido()) {
+            return;
+        }
+        if (victoria) {
+            siguienteRonda();
+            return;
+        }
+        if (derrota) {
+            return;
+        }
+        pedirNombreEIniciar();
+    }
+
+    private void nuevoDesdeFinal() {
+        if ((victoria || derrota) && bloqueoVencido()) {
+            pedirNombreEIniciar();
+        }
+    }
+
     private void pedirNombreEIniciar() {
         if (!bloqueoVencido()) {
             return;
         }
+        if ((victoria || derrota) && !resultadoRegistrado) {
+            finalizarPartida(derrota ? "Derrota" : "Victoria");
+            if (!resultadoRegistrado) {
+                return;
+            }
+        }
         if (hayPartidaGuardada) {
             int opcion = JOptionPane.showConfirmDialog(this,
-                    "Se va a borrar la partida guardada. ¿Empezar una nueva?",
-                    "Nueva partida", JOptionPane.YES_NO_OPTION,
+                    "Se va a reemplazar la partida guardada. ¿Empezar con un personaje nuevo?",
+                    "Personaje nuevo", JOptionPane.YES_NO_OPTION,
                     JOptionPane.WARNING_MESSAGE);
             if (opcion != JOptionPane.YES_OPTION) {
                 return;
             }
         }
         String nombre = (String) JOptionPane.showInputDialog(this,
-                "Nombre del aventurero:", "Nueva partida",
-                JOptionPane.QUESTION_MESSAGE, null, null, "Aventurero");
+                "Nombre del personaje:", "Personaje nuevo",
+                JOptionPane.QUESTION_MESSAGE, null, null, "");
         if (nombre == null) {
             return;
         }
         nombre = nombre.trim();
         if (nombre.isEmpty()) {
-            nombre = "Aventurero";
+            DialogosError.mostrar(this,
+                    new IllegalArgumentException("El nombre no puede estar vacío."));
+            return;
         }
         if (nombre.length() > 50) {
-            nombre = nombre.substring(0, 50);
+            DialogosError.mostrar(this,
+                    new IllegalArgumentException("El nombre no puede superar los 50 caracteres."));
+            return;
         }
 
         try {
-            int id = servicio.iniciarNuevaPartida(nombre, Reglas.VIDA_INICIAL,
-                    Reglas.ATAQUE_INICIAL, Escenario.crear());
-            aventurero = servicio.obtenerEstadoAventurero(id);
-            piso = aventurero.getPisoActual();
-            victoria = false;
-            derrota = false;
-            mostrandoInicio = false;
-            turnos = 0;
-            reiniciarEfectos();
+            InicioPartida inicio = servicio.iniciarPartidaNueva(nombre, 1, Escenario.crear(1));
+            personajeActual = inicio.personaje();
+            aventurero = inicio.aventurero();
+            aplicarEstadoInicialDePartida();
             cargarPiso();
             hayPartidaGuardada = true;
             bloqueoHasta = System.currentTimeMillis() + BLOQUEO_TURNO;
@@ -262,18 +305,135 @@ public final class PanelJuego extends JPanel {
                     ultimo = candidato;
                 }
             }
+            if (ultimo.getPersonajeId() <= 0) {
+                DialogosError.mostrar(this, new IllegalStateException(
+                        "La partida guardada es anterior al registro de personajes. "
+                        + "Empezá una nueva."));
+                return;
+            }
+            personajeActual = servicio.obtenerPersonaje(ultimo.getPersonajeId());
             aventurero = servicio.obtenerEstadoAventurero(ultimo.getId());
             piso = aventurero.getPisoActual();
+            mostrandoInicio = false;
             victoria = false;
             derrota = false;
-            mostrandoInicio = false;
             turnos = 0;
+            puntaje = 0;
+            resultadoRegistrado = false;
+            ranking.clear();
             reiniciarEfectos();
-            cargarPiso();
+            if (aventurero.estaDerrotado()) {
+                derrota = true;
+                finalizarPartida("Derrota");
+            } else if (servicio.esVictoria(aventurero.getId())) {
+                victoria = true;
+                finalizarPartida("Victoria");
+            } else {
+                cargarPiso();
+            }
             bloqueoHasta = System.currentTimeMillis() + BLOQUEO_TURNO;
         } catch (JuegoException e) {
             DialogosError.mostrar(this, e);
         }
+    }
+
+    private void aplicarEstadoInicialDePartida() {
+        piso = aventurero.getPisoActual();
+        victoria = false;
+        derrota = false;
+        mostrandoInicio = false;
+        turnos = 0;
+        puntaje = 0;
+        resultadoRegistrado = false;
+        ranking.clear();
+        reiniciarEfectos();
+    }
+
+    private void siguienteRonda() {
+        if (!victoria) {
+            return;
+        }
+        if (personajeActual == null || aventurero == null) {
+            return;
+        }
+        if (!resultadoRegistrado) {
+            finalizarPartida(derrota ? "Derrota" : "Victoria");
+            if (!resultadoRegistrado) {
+                return;
+            }
+        }
+        int siguiente = aventurero.getRonda() + 1;
+        try {
+            Aventurero nuevo = servicio.iniciarPartida(personajeActual, siguiente,
+                    Escenario.crear(siguiente));
+            aventurero = nuevo;
+            aplicarEstadoInicialDePartida();
+            cargarPiso();
+            hayPartidaGuardada = true;
+            bloqueoHasta = System.currentTimeMillis() + BLOQUEO_TURNO;
+        } catch (JuegoException e) {
+            DialogosError.mostrar(this, e);
+        }
+    }
+
+    private void finalizarPartida(String resultado) {
+        if (resultadoRegistrado || personajeActual == null || aventurero == null) {
+            return;
+        }
+        try {
+            List<Partida> partidas = servicio.listarPartidas(personajeActual.getId());
+            Partida anterior = null;
+            for (Partida partida : partidas) {
+                if (partida.ronda() == aventurero.getRonda()
+                        && partida.resultado().equalsIgnoreCase(resultado)) {
+                    anterior = partida;
+                    break;
+                }
+            }
+            if (anterior != null) {
+                puntaje = anterior.puntos();
+                resultadoRegistrado = true;
+            } else {
+                puntaje = servicio.registrarResultado(personajeActual, aventurero, resultado);
+                resultadoRegistrado = true;
+            }
+            if ("Derrota".equalsIgnoreCase(resultado)) {
+                hayPartidaGuardada = false;
+            }
+            personajeActual = servicio.obtenerPersonaje(personajeActual.getId());
+            ranking.clear();
+            ranking.addAll(servicio.listarRanking(Reglas.RANKING_LIMITE));
+        } catch (JuegoException e) {
+            DialogosError.mostrar(this, e);
+            if (personajeActual != null) {
+                try {
+                    personajeActual = servicio.obtenerPersonaje(personajeActual.getId());
+                } catch (JuegoException ex) {
+                    DialogosError.mostrar(this, ex);
+                }
+            }
+            try {
+                ranking.clear();
+                ranking.addAll(servicio.listarRanking(Reglas.RANKING_LIMITE));
+            } catch (JuegoException ex) {
+                DialogosError.mostrar(this, ex);
+            }
+        }
+    }
+
+    private int puntosProyectados() {
+        if (aventurero == null) {
+            return 0;
+        }
+        return aventurero.getRonda() * Reglas.PUNTOS_RONDA
+                + piso * Reglas.PUNTOS_PISO
+                + aventurero.getOro()
+                + aventurero.getEnemigosDerrotados() * Reglas.PUNTOS_ENEMIGO;
+    }
+
+    private Color colorRonda() {
+        int ronda = aventurero == null ? 1 : aventurero.getRonda();
+        return COLORES_RONDA[Math.floorMod(ronda - 1, COLORES_RONDA.length)];
     }
 
     public void recargarTablero() {
@@ -284,6 +444,18 @@ public final class PanelJuego extends JPanel {
             aventurero = servicio.obtenerEstadoAventurero(aventurero.getId());
             piso = aventurero.getPisoActual();
             cargarPiso();
+        } catch (JuegoException e) {
+            DialogosError.mostrar(this, e);
+        }
+    }
+
+    private void recargarAventurero() {
+        if (aventurero == null) {
+            return;
+        }
+        try {
+            aventurero = servicio.obtenerEstadoAventurero(aventurero.getId());
+            piso = aventurero.getPisoActual();
         } catch (JuegoException e) {
             DialogosError.mostrar(this, e);
         }
@@ -331,6 +503,10 @@ public final class PanelJuego extends JPanel {
         }
 
         turnoEnemigos(-1);
+        if (aventurero.estaDerrotado()) {
+            derrota = true;
+            finalizarPartida("Derrota");
+        }
     }
 
     private void atacarFisico() {
@@ -405,14 +581,24 @@ public final class PanelJuego extends JPanel {
             }
 
             turnos++;
-            if (aventurero.estaDerrotado()) {
+            if (victoria) {
+                finalizarPartida("Victoria");
+            } else if (aventurero.estaDerrotado()) {
                 derrota = true;
-            } else if (!victoria) {
+                finalizarPartida("Derrota");
+            } else {
                 turnoEnemigos(enemigo.criatura.getId());
+                if (aventurero.estaDerrotado()) {
+                    derrota = true;
+                    finalizarPartida("Derrota");
+                }
             }
             bloqueoHasta = System.currentTimeMillis() + BLOQUEO_TURNO;
         } catch (JuegoException e) {
             DialogosError.mostrar(this, e);
+            if (e instanceof PersistenciaException) {
+                recargarTablero();
+            }
         }
     }
 
@@ -443,10 +629,14 @@ public final class PanelJuego extends JPanel {
             turnos++;
             if (aventurero.estaDerrotado()) {
                 derrota = true;
+                finalizarPartida("Derrota");
             }
             bloqueoHasta = System.currentTimeMillis() + BLOQUEO_TURNO;
         } catch (JuegoException e) {
             DialogosError.mostrar(this, e);
+            if (e instanceof PersistenciaException) {
+                recargarTablero();
+            }
         }
     }
 
@@ -461,15 +651,12 @@ public final class PanelJuego extends JPanel {
 
         long ahora = System.currentTimeMillis();
         int vidaAntes = aventurero.getVida();
-        int oroAntes = aventurero.getOro();
         try {
             servicio.huirDeCombate(aventurero, enemigo.criatura);
             aventurero = servicio.obtenerEstadoAventurero(aventurero.getId());
             ahora = System.currentTimeMillis();
 
             int vidaPerdida = Math.max(0, vidaAntes - aventurero.getVida());
-            muertes.add(new MuerteVisual(enemigo.criatura, enemigo.col, enemigo.fila,
-                    ahora, ahora + duracionMuerte(enemigo.criatura)));
             criaturas.remove(enemigo);
             explotar(enemigo.col, enemigo.fila, new Color(0x5A4A6E), 10);
             if (vidaPerdida > 0) {
@@ -481,12 +668,20 @@ public final class PanelJuego extends JPanel {
             turnos++;
             if (aventurero.estaDerrotado()) {
                 derrota = true;
+                finalizarPartida("Derrota");
             } else {
                 turnoEnemigos(enemigo.criatura.getId());
+                if (aventurero.estaDerrotado()) {
+                    derrota = true;
+                    finalizarPartida("Derrota");
+                }
             }
             bloqueoHasta = System.currentTimeMillis() + BLOQUEO_TURNO;
         } catch (JuegoException e) {
             DialogosError.mostrar(this, e);
+            if (e instanceof PersistenciaException) {
+                recargarTablero();
+            }
         }
     }
 
@@ -514,6 +709,9 @@ public final class PanelJuego extends JPanel {
             bloqueoHasta = System.currentTimeMillis() + BLOQUEO_TURNO;
         } catch (JuegoException e) {
             DialogosError.mostrar(this, e);
+            if (e instanceof PersistenciaException) {
+                recargarTablero();
+            }
         }
     }
 
@@ -610,6 +808,9 @@ public final class PanelJuego extends JPanel {
             }
         } catch (JuegoException e) {
             DialogosError.mostrar(this, e);
+            if (e instanceof PersistenciaException) {
+                recargarAventurero();
+            }
         }
     }
 
@@ -732,6 +933,8 @@ public final class PanelJuego extends JPanel {
         idGuardia = -1;
         List<Criatura> lista = servicio.listarCriaturasPorPiso(piso);
         Set<Integer> usados = new HashSet<>();
+        usados.add(JUGADOR_FILA * COLUMNAS + JUGADOR_COL);
+        usados.add(ESCALERA_FILA * COLUMNAS + ESCALERA_COL);
         usados.add(JUGADOR_FILA * COLUMNAS + JUGADOR_COL);
 
         jugadorCol = JUGADOR_COL;
@@ -897,6 +1100,10 @@ public final class PanelJuego extends JPanel {
                 new Color(0x8D5A3B)};
             case DRAGON_JEFE -> new Color[]{new Color(0xE67E22), new Color(0xF2C230),
                 new Color(0xA83232), new Color(0x6E1F1F)};
+            case ARANA -> new Color[]{new Color(0x8E5AA8), new Color(0x6B3B84),
+                new Color(0x3B2148)};
+            case GOLEM -> new Color[]{new Color(0x9AA0A8), new Color(0x6E747C),
+                new Color(0x3B3F45)};
         };
     }
 
@@ -1062,7 +1269,7 @@ public final class PanelJuego extends JPanel {
             Sprites.antorcha(g2, x, y, 3);
         }
 
-        g2.setColor(new Color(0x000000));
+        g2.setColor(aventurero == null ? new Color(0x000000) : colorRonda().darker());
         g2.setStroke(new BasicStroke(4f));
         g2.drawRect(tableroX, tableroY, ANCHO_TABLERO, ALTO_TABLERO);
     }
@@ -1221,12 +1428,23 @@ public final class PanelJuego extends JPanel {
             }
         }
 
+        if (aventurero != null && aventurero.getRonda() > 1) {
+            Color acento = colorRonda();
+            g2.setPaint(new RadialGradientPaint(
+                    new Point2D.Double(x + tamano / 2.0, y + tamano / 2.0), tamano * 0.78f,
+                    new float[]{0f, 1f},
+                    new Color[]{new Color(acento.getRed(), acento.getGreen(), acento.getBlue(), 48),
+                        new Color(acento.getRed(), acento.getGreen(), acento.getBlue(), 0)}));
+            g2.fill(new Ellipse2D.Double(x - 10, y - 10, tamano + 20, tamano + 20));
+        }
+
         switch (enemigo.criatura.getTipo()) {
             case ESQUELETO -> Sprites.esqueleto(g2, x, y, escala);
             case FANTASMA -> Sprites.fantasma(g2, x, y, escala);
             case ORCO -> Sprites.orco(g2, x, y, escala);
             case DRAGON_JEFE -> Sprites.dragon(g2, x, y, escala);
-            default -> Sprites.esqueleto(g2, x, y, escala);
+            case ARANA -> Sprites.arana(g2, x, y, escala);
+            case GOLEM -> Sprites.golem(g2, x, y, escala);
         }
 
         if (ahora < enemigo.golpeHasta) {
@@ -1294,7 +1512,8 @@ public final class PanelJuego extends JPanel {
                 case FANTASMA -> Sprites.fantasma(g2, x, y - subida, 3);
                 case ORCO -> Sprites.orco(g2, x, y - subida, 3);
                 case DRAGON_JEFE -> Sprites.dragon(g2, x, y - subida, 3);
-                default -> Sprites.esqueleto(g2, x, y - subida, 3);
+                case ARANA -> Sprites.arana(g2, x, y - subida, 3);
+                case GOLEM -> Sprites.golem(g2, x, y - subida, 3);
             }
             g2.setComposite(AlphaComposite.SrcOver);
         }
@@ -1397,11 +1616,15 @@ public final class PanelJuego extends JPanel {
         g2.drawString("MAZMORRA", 24, 38);
         g2.setFont(new Font("Consolas", Font.PLAIN, 12));
         g2.setColor(TEXTO_SUAVE);
-        g2.drawString("PISO " + piso, 24, 58);
+        g2.drawString("PISO " + piso, 24, 64);
         for (int i = 0; i < 3; i++) {
             g2.setColor(i < piso ? new Color(0xE0B341) : new Color(0x2A2438));
-            g2.fillRoundRect(88 + i * 14, 48, 10, 8, 3, 3);
+            g2.fillRoundRect(88 + i * 14, 52, 10, 8, 3, 3);
         }
+        g2.setFont(new Font("Consolas", Font.BOLD, 12));
+        g2.setColor(colorRonda());
+        g2.drawString("RONDA " + (aventurero != null ? aventurero.getRonda() : 1),
+                150, 64);
 
         int barraX = 220;
         int barraY = 22;
@@ -1429,23 +1652,39 @@ public final class PanelJuego extends JPanel {
 
         int oro = aventurero != null ? aventurero.getOro() : 0;
         g2.setColor(new Color(0xE0B341));
-        g2.fill(new Ellipse2D.Double(600, 22, 18, 18));
+        g2.fill(new Ellipse2D.Double(560, 22, 18, 18));
         g2.setColor(new Color(0x8A6A1E));
-        g2.draw(new Ellipse2D.Double(600, 22, 18, 18));
+        g2.draw(new Ellipse2D.Double(560, 22, 18, 18));
         g2.setFont(new Font("Consolas", Font.BOLD, 14));
         g2.setColor(TEXTO);
-        g2.drawString(String.valueOf(oro), 626, 36);
+        g2.drawString(String.valueOf(oro), 586, 36);
         g2.setFont(new Font("Consolas", Font.PLAIN, 11));
         g2.setColor(TEXTO_SUAVE);
-        g2.drawString("ORO", 600, 60);
+        g2.drawString("ORO", 560, 60);
+
+        g2.setFont(new Font("Consolas", Font.BOLD, 14));
+        g2.setColor(TEXTO);
+        g2.drawString(String.valueOf(puntosProyectados()), 680, 36);
+        g2.setFont(new Font("Consolas", Font.PLAIN, 11));
+        g2.setColor(TEXTO_SUAVE);
+        g2.drawString("PUNTOS", 680, 60);
 
         if (aventurero != null) {
             g2.setFont(new Font("Consolas", Font.BOLD, 14));
             g2.setColor(TEXTO);
-            g2.drawString(aventurero.getNombre(), 760, 36);
+            String nombre = aventurero.getNombre();
+            int maxNombre = Math.max(30, ancho - 118 - 800 - 12);
+            while (!nombre.isEmpty()
+                    && g2.getFontMetrics().stringWidth(nombre) > maxNombre) {
+                nombre = nombre.substring(0, nombre.length() - 1);
+            }
+            if (!nombre.equals(aventurero.getNombre())) {
+                nombre = nombre + "...";
+            }
+            g2.drawString(nombre, 800, 36);
             g2.setFont(new Font("Consolas", Font.PLAIN, 11));
             g2.setColor(TEXTO_SUAVE);
-            g2.drawString("AVENTURERO", 760, 56);
+            g2.drawString("AVENTURERO", 800, 60);
         }
 
         g2.setFont(new Font("Consolas", Font.PLAIN, 11));
@@ -1458,8 +1697,8 @@ public final class PanelJuego extends JPanel {
         g2.setFont(new Font("Consolas", Font.PLAIN, 12));
         g2.setColor(TEXTO_SUAVE);
         String ayuda = "WASD mover   1 físico   2 magia   " + textoPocion()
-                + "   H huir   R reiniciar";
-        g2.drawString(ayuda, (ancho - anchoTexto(g2, ayuda)) / 2, 78);
+                + "   H huir   R nuevo   C continuar   N nuevo";
+        g2.drawString(ayuda, (ancho - anchoTexto(g2, ayuda)) / 2, 88);
     }
 
     private String textoPocion() {
@@ -1485,24 +1724,28 @@ public final class PanelJuego extends JPanel {
         g2.setColor(TEXTO);
         dibujarCentrado(g2, "MAZMORRA", ancho, 190);
 
-        g2.setFont(new Font("Consolas", Font.PLAIN, 16));
-        g2.setColor(new Color(0xC9C3DD));
-
         g2.setFont(new Font("Consolas", Font.PLAIN, 15));
         g2.setColor(TEXTO_SUAVE);
-        dibujarCentrado(g2, "WASD: moverte por la sala", ancho, 330);
-        dibujarCentrado(g2, "1: ataque físico   ·   2: magia", ancho, 360);
+        dibujarCentrado(g2, "WASD: moverte por la sala", ancho, 320);
+        dibujarCentrado(g2, "1: ataque físico   ·   2: magia", ancho, 350);
         dibujarCentrado(g2, "P: poción (cura hasta " + Reglas.TAMANO_POCION + " por "
-                + Reglas.COSTO_POCION + " de oro)   ·   H: huir   ·   R: reiniciar", ancho, 390);
-        dibujarCentrado(g2, "Atacá con 1 o 2 al enemigo de al lado", ancho, 420);
-        dibujarCentrado(g2, "Caminá hacia la escalera cuando el piso esté limpio", ancho, 450);
+                + Reglas.COSTO_POCION + " de oro)   ·   H: huir   ·   R: personaje nuevo", ancho, 380);
+        dibujarCentrado(g2, "Atacá con 1 o 2 al enemigo de al lado", ancho, 410);
+        dibujarCentrado(g2, "Caminá hacia la escalera cuando el piso esté limpio", ancho, 440);
+
+        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
+        g2.setColor(new Color(0xC9C3DD));
+        dibujarCentrado(g2, "Solo una victoria sube la ronda.", ancho, 490);
+        dibujarCentrado(g2, "Al ganar, vida y oro se reinician; el personaje sigue.", ancho, 515);
+        dibujarCentrado(g2, "Si mueres, el personaje queda eliminado.", ancho, 540);
+        dibujarCentrado(g2, "El ranking guarda el top 5 por mejor puntaje.", ancho, 565);
 
         int pulso = (int) (150 + 105 * Math.sin(System.currentTimeMillis() / 400.0));
         g2.setFont(new Font("Consolas", Font.BOLD, 20));
         g2.setColor(new Color(242, 194, 48, pulso));
         dibujarCentrado(g2, hayPartidaGuardada
-                ? "Enter: nueva partida   ·   C: continuar"
-                : "Enter para empezar", ancho, 560);
+                ? "Enter: personaje nuevo   ·   C: continuar"
+                : "Enter para empezar", ancho, 595);
     }
 
     private void dibujarFinal(Graphics2D g2, int ancho, int alto, String titulo,
@@ -1512,24 +1755,64 @@ public final class PanelJuego extends JPanel {
 
         g2.setFont(new Font("Consolas", Font.BOLD, 44));
         g2.setColor(victoria ? new Color(0xE0B341) : SANGRE);
-        dibujarCentrado(g2, titulo, ancho, 300);
+        dibujarCentrado(g2, titulo, ancho, 165);
 
         g2.setFont(new Font("Consolas", Font.PLAIN, 18));
         g2.setColor(TEXTO);
-        dibujarCentrado(g2, linea1, ancho, 350);
-        dibujarCentrado(g2, linea2, ancho, 380);
+        dibujarCentrado(g2, linea1, ancho, 215);
+        dibujarCentrado(g2, linea2, ancho, 245);
 
+        int puntosMostrados = resultadoRegistrado ? puntaje : puntosProyectados();
         g2.setFont(new Font("Consolas", Font.PLAIN, 14));
         g2.setColor(TEXTO_SUAVE);
-        String resumen = "Piso " + piso + "   ·   Oro "
-                + (aventurero != null ? aventurero.getOro() : 0)
-                + "   ·   Turnos " + turnos;
-        dibujarCentrado(g2, resumen, ancho, 424);
+        String resumen = "Ronda " + (aventurero != null ? aventurero.getRonda() : 1)
+                + "   ·   Piso " + piso + "   ·   Puntos " + puntosMostrados;
+        dibujarCentrado(g2, resumen, ancho, 285);
+
+        g2.setFont(new Font("Consolas", Font.BOLD, 16));
+        g2.setColor(colorRonda());
+        dibujarCentrado(g2, "TOP 5", ancho, 325);
+
+        g2.setFont(new Font("Consolas", Font.PLAIN, 14));
+        g2.setColor(TEXTO);
+        if (!resultadoRegistrado) {
+            g2.setColor(SANGRE);
+            dibujarCentrado(g2, "No se pudo guardar el resultado; N reintenta.", ancho, 355);
+        } else if (ranking.isEmpty()) {
+            dibujarCentrado(g2, "Todavía no hay puntajes registrados.", ancho, 355);
+        } else {
+            for (int i = 0; i < ranking.size(); i++) {
+                Personaje personaje = ranking.get(i);
+                String fila = (i + 1) + ". " + personaje.getNombre()
+                        + "   ·   " + personaje.getMejorPuntaje() + " pts"
+                        + "   ·   rondas " + personaje.getRondas();
+                dibujarCentrado(g2, fila, ancho, 355 + i * 24);
+            }
+        }
+
+        if (aventurero != null) {
+            g2.setFont(new Font("Consolas", Font.PLAIN, 13));
+            g2.setColor(TEXTO_SUAVE);
+            String detalle = "Enemigos " + aventurero.getEnemigosDerrotados()
+                    + "   ·   Oro " + aventurero.getOro()
+                    + "   ·   Turnos " + turnos;
+            dibujarCentrado(g2, detalle, ancho, 500);
+        }
 
         int pulso = (int) (150 + 105 * Math.sin(System.currentTimeMillis() / 400.0));
         g2.setFont(new Font("Consolas", Font.BOLD, 18));
         g2.setColor(new Color(242, 194, 48, pulso));
-        dibujarCentrado(g2, "R para empezar de nuevo", ancho, 480);
+        String accion = victoria
+                ? "R: siguiente ronda   ·   N: personaje nuevo"
+                : "N: personaje nuevo";
+        dibujarCentrado(g2, accion, ancho, 545);
+
+        g2.setFont(new Font("Consolas", Font.PLAIN, 13));
+        g2.setColor(TEXTO_SUAVE);
+        String pista = victoria
+                ? "La vida y el oro se reinician; el personaje y su puntaje quedan."
+                : "El personaje quedó eliminado; su puntaje queda en el ranking.";
+        dibujarCentrado(g2, pista, ancho, 578);
     }
 
     private static void dibujarCentrado(Graphics2D g2, String texto, int ancho, int y) {

@@ -10,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -17,13 +18,15 @@ import java.util.Optional;
 public class AventureroDAOMySQL implements AventureroDAO {
 
     private static final String COLUMNAS = "ID, Nombre, Nivel, Vida, VidaMaxima, AtaqueBase, "
-            + "Oro, PisoActual";
+            + "Oro, PisoActual, PersonajeID, Ronda, EnemigosDerrotados";
 
     private static final String SQL_INSERTAR = "INSERT INTO aventurero (Nombre, Nivel, Vida, "
-            + "VidaMaxima, AtaqueBase, Oro, PisoActual) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            + "VidaMaxima, AtaqueBase, Oro, PisoActual, PersonajeID, Ronda, EnemigosDerrotados) "
+            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String SQL_ACTUALIZAR = "UPDATE aventurero SET Nombre = ?, Nivel = ?, Vida = ?, "
-            + "VidaMaxima = ?, AtaqueBase = ?, Oro = ?, PisoActual = ? WHERE ID = ?";
+            + "VidaMaxima = ?, AtaqueBase = ?, Oro = ?, PisoActual = ?, PersonajeID = ?, Ronda = ?, "
+            + "EnemigosDerrotados = ? WHERE ID = ?";
 
     private static final String SQL_BUSCAR_POR_ID = "SELECT " + COLUMNAS + " FROM aventurero WHERE ID = ?";
     private static final String SQL_LISTAR_TODOS = "SELECT " + COLUMNAS + " FROM aventurero ORDER BY ID";
@@ -69,6 +72,9 @@ public class AventureroDAOMySQL implements AventureroDAO {
             ps.setInt(5, aventurero.getAtaqueBase());
             ps.setInt(6, aventurero.getOro());
             ps.setInt(7, aventurero.getPisoActual());
+            escribirPersonajeId(ps, 8, aventurero);
+            ps.setInt(9, aventurero.getRonda());
+            ps.setInt(10, aventurero.getEnemigosDerrotados());
             ps.executeUpdate();
             try (ResultSet claves = ps.getGeneratedKeys()) {
                 if (!claves.next()) {
@@ -115,7 +121,10 @@ public class AventureroDAOMySQL implements AventureroDAO {
             ps.setInt(5, aventurero.getAtaqueBase());
             ps.setInt(6, aventurero.getOro());
             ps.setInt(7, aventurero.getPisoActual());
-            ps.setInt(8, aventurero.getId());
+            escribirPersonajeId(ps, 8, aventurero);
+            ps.setInt(9, aventurero.getRonda());
+            ps.setInt(10, aventurero.getEnemigosDerrotados());
+            ps.setInt(11, aventurero.getId());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new PersistenciaException(
@@ -229,10 +238,28 @@ public class AventureroDAOMySQL implements AventureroDAO {
         int ataqueBase = rs.getInt("AtaqueBase");
         int oro = rs.getInt("Oro");
         int pisoActual = rs.getInt("PisoActual");
+        int personajeId = rs.getInt("PersonajeID");
+        if (rs.wasNull()) {
+            // Una partida sin personaje asociado se representa con 0.
+            personajeId = 0;
+        }
+        int ronda = rs.getInt("Ronda");
+        int enemigosDerrotados = rs.getInt("EnemigosDerrotados");
         try {
-            return new Aventurero(id, nombre, nivel, vida, vidaMaxima, ataqueBase, oro, pisoActual);
+            return new Aventurero(id, nombre, nivel, vida, vidaMaxima, ataqueBase, oro, pisoActual,
+                    personajeId, ronda, enemigosDerrotados);
         } catch (IllegalArgumentException e) {
             throw new PersistenciaException("Fila corrupta en aventurero con id " + id, e);
+        }
+    }
+
+    private void escribirPersonajeId(PreparedStatement ps, int posicion, Aventurero aventurero)
+            throws SQLException {
+        // Sin personaje asociado la columna queda NULL, no en cero.
+        if (aventurero.getPersonajeId() > 0) {
+            ps.setInt(posicion, aventurero.getPersonajeId());
+        } else {
+            ps.setNull(posicion, Types.INTEGER);
         }
     }
 }

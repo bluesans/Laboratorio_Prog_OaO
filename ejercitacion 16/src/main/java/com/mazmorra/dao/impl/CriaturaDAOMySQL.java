@@ -3,10 +3,12 @@ package com.mazmorra.dao.impl;
 import com.mazmorra.dao.CriaturaDAO;
 import com.mazmorra.db.Conexion;
 import com.mazmorra.exception.PersistenciaException;
+import com.mazmorra.model.Arana;
 import com.mazmorra.model.Criatura;
 import com.mazmorra.model.DragonJefe;
 import com.mazmorra.model.Esqueleto;
 import com.mazmorra.model.Fantasma;
+import com.mazmorra.model.Golem;
 import com.mazmorra.model.Orco;
 import com.mazmorra.model.TipoCriatura;
 
@@ -280,7 +282,9 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
         ps.setNull(PARAM_FASE_ACTUAL, Types.INTEGER);
         ps.setNull(PARAM_CANTIDAD_FASES, Types.INTEGER);
         ps.setNull(PARAM_ALIENTO_DE_FUEGO, Types.BOOLEAN);
-        if (criatura instanceof Esqueleto esqueleto) {
+        if (criatura instanceof Golem golem) {
+            ps.setInt(PARAM_RESISTENCIA_FISICA, golem.getResistenciaFisica());
+        } else if (criatura instanceof Esqueleto esqueleto) {
             ps.setInt(PARAM_RESISTENCIA_FISICA, esqueleto.getResistenciaFisica());
         } else if (criatura instanceof Fantasma fantasma) {
             ps.setBoolean(PARAM_ES_INCORPOREO, fantasma.isEsIncorporeo());
@@ -290,6 +294,8 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
             ps.setInt(PARAM_FASE_ACTUAL, dragon.getFaseActual());
             ps.setInt(PARAM_CANTIDAD_FASES, dragon.getCantidadFases());
             ps.setBoolean(PARAM_ALIENTO_DE_FUEGO, dragon.isAlientoDeFuego());
+        } else if (criatura instanceof Arana) {
+            return;
         } else {
             throw new PersistenciaException(
                     "Tipo de criatura no soportado para persistir: " + criatura.getTipo());
@@ -327,10 +333,24 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
             throw new PersistenciaException(
                     "Tipo de criatura desconocido en la base: " + tipoLeido, e);
         }
-        Criatura criatura;
+        Criatura criatura = mapearCriaturaBase(rs, tipo, tipoLeido, id, nombre, vida, vidaMaxima,
+                nivelAmenaza, danioAtaque, pisoMazmorra, derrotada);
+
+        if (evadida) {
+            criatura.marcarEvadida();
+        }
+        if (recompensaPagada) {
+            criatura.marcarRecompensaPagada();
+        }
+        return criatura;
+    }
+
+    private Criatura mapearCriaturaBase(ResultSet rs, TipoCriatura tipo, String tipoLeido, int id,
+            String nombre, int vida, int vidaMaxima, int nivelAmenaza, int danioAtaque,
+            int pisoMazmorra, boolean derrotada) throws SQLException, PersistenciaException {
         try {
             // El Tipo decide la subclase concreta.
-            criatura = switch (tipo) {
+            return switch (tipo) {
                 case ESQUELETO -> {
                     int resistenciaFisica = rs.getInt("ResistenciaFisica");
                     if (rs.wasNull()) {
@@ -372,17 +392,20 @@ public class CriaturaDAOMySQL implements CriaturaDAO {
                     yield new DragonJefe(id, nombre, vida, vidaMaxima, nivelAmenaza, danioAtaque,
                             pisoMazmorra, derrotada, faseActual, cantidadFases, alientoDeFuego);
                 }
+                case ARANA -> new Arana(id, nombre, vida, vidaMaxima, nivelAmenaza, danioAtaque,
+                        pisoMazmorra, derrotada);
+                case GOLEM -> {
+                    int resistenciaFisica = rs.getInt("ResistenciaFisica");
+                    if (rs.wasNull()) {
+                        throw new PersistenciaException(
+                                "Golem sin ResistenciaFisica en la base (id " + id + ")");
+                    }
+                    yield new Golem(id, nombre, vida, vidaMaxima, nivelAmenaza, danioAtaque,
+                            pisoMazmorra, derrotada, resistenciaFisica);
+                }
             };
         } catch (IllegalArgumentException e) {
             throw new PersistenciaException("Fila corrupta en criatura con id " + id, e);
         }
-
-        if (evadida) {
-            criatura.marcarEvadida();
-        }
-        if (recompensaPagada) {
-            criatura.marcarRecompensaPagada();
-        }
-        return criatura;
     }
 }
