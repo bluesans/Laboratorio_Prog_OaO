@@ -274,4 +274,5 @@ src/main/java/com/mazmorra/
 docs/                         capturas de pantalla
 sql/schema.sql                esquema completo (destructivo)
 db.properties.example
+prompts.md
 ```
